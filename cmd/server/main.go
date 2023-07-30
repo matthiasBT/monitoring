@@ -27,14 +27,13 @@ func updateMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
-	case errors.Is(err, web.InvalidMetricType):
+	case errors.Is(err, web.ErrInvalidMetricType):
 		http.Error(w, err.Error(), http.StatusBadRequest)
-	case errors.Is(err, web.MissingMetricName):
+	case errors.Is(err, web.ErrMissingMetricName):
 		http.Error(w, err.Error(), http.StatusNotFound)
-	case errors.Is(err, web.InvalidMetricVal):
+	case errors.Is(err, web.ErrInvalidMetricVal):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
-	return
 }
 
 func main() {

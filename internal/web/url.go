@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	InvalidMetricType = errors.New("invalid metric type")
-	MissingMetricName = errors.New("missing metric name")
-	InvalidMetricVal  = errors.New("invalid metric value")
+	ErrInvalidMetricType = errors.New("invalid metric type")
+	ErrMissingMetricName = errors.New("missing metric name")
+	ErrInvalidMetricVal  = errors.New("invalid metric value")
 )
 
 func ParseMetricUpdate(url string, prefix string) (*storage.MetricUpdate, error) {
@@ -30,13 +30,13 @@ func ParseMetricUpdate(url string, prefix string) (*storage.MetricUpdate, error)
 func validateMetricUpdateURL(tokens *[]string) error {
 	tokensCnt := len(*tokens)
 	if tokensCnt == 0 || tokensCnt == 1 && (*tokens)[0] == "" {
-		return InvalidMetricType // treating the first token as the type; no type - return error
+		return ErrInvalidMetricType // treating the first token as the type; no type - return error
 	} else if tokensCnt == 1 || tokensCnt == 2 && (*tokens)[1] == "" {
-		return MissingMetricName
+		return ErrMissingMetricName
 	} else if tokensCnt == 2 {
-		return InvalidMetricVal
+		return ErrInvalidMetricVal
 	} else if tokensCnt > 3 {
-		return InvalidMetricVal // treating the rest of the URL as the value
+		return ErrInvalidMetricVal // treating the rest of the URL as the value
 	}
 	return nil
 }
@@ -45,14 +45,14 @@ func validateMetricTypeVal(metricType string, val string) error {
 	switch metricType {
 	case storage.TypeGauge:
 		if _, err := strconv.ParseFloat(val, 64); err != nil {
-			return InvalidMetricVal
+			return ErrInvalidMetricVal
 		}
 	case storage.TypeCounter:
 		if _, err := strconv.ParseInt(val, 10, 64); err != nil {
-			return InvalidMetricVal
+			return ErrInvalidMetricVal
 		}
 	default:
-		return InvalidMetricType
+		return ErrInvalidMetricType
 	}
 	return nil
 }
