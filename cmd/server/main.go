@@ -1,9 +1,8 @@
 package main
 
 import (
-	"errors"
+	"github.com/matthiasBT/monitoring/internal/handlers"
 	"github.com/matthiasBT/monitoring/internal/storage"
-	"github.com/matthiasBT/monitoring/internal/web"
 	"net/http"
 )
 
@@ -16,24 +15,7 @@ var MetricsStorage = storage.MemStorage{
 }
 
 func updateMetric(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	metricUpdate, err := web.ParseMetricUpdate(r.URL.Path, patternUpdate)
-	if err == nil {
-		MetricsStorage.Add(*metricUpdate)
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-	switch {
-	case errors.Is(err, web.ErrInvalidMetricType):
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	case errors.Is(err, web.ErrMissingMetricName):
-		http.Error(w, err.Error(), http.StatusNotFound)
-	case errors.Is(err, web.ErrInvalidMetricVal):
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
+	handlers.UpdateMetric(w, r, patternUpdate, MetricsStorage)
 }
 
 func main() {
