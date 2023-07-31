@@ -13,7 +13,7 @@ var (
 	ErrInvalidMetricVal  = errors.New("invalid metric value")
 )
 
-func ParseMetricUpdate(url string, prefix string) (*storage.MetricUpdate, error) {
+func parseMetricUpdate(url string, prefix string) (*storage.MetricUpdate, error) {
 	url = strings.TrimPrefix(url, prefix)
 	tokens := strings.Split(url, "/")
 	if err := validateMetricUpdateURL(&tokens); err != nil {
