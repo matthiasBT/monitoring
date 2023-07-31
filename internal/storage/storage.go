@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"strconv"
 )
 
@@ -33,4 +34,5 @@ func (storage *MemStorage) Add(update MetricUpdate) {
 		val, _ := strconv.ParseInt(update.Value, 10, 64)
 		storage.MetricsCounter[update.Name] += val
 	}
+	fmt.Printf("Updated metrics with %+v\n", update)
 }
