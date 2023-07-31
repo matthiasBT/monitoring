@@ -15,7 +15,7 @@ var MetricsStorage = storage.MemStorage{
 }
 
 func updateMetric(w http.ResponseWriter, r *http.Request) {
-	handlers.UpdateMetric(w, r, patternUpdate, MetricsStorage)
+	handlers.UpdateMetric(w, r, patternUpdate, &MetricsStorage)
 }
 
 func main() {

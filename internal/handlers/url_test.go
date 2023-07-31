@@ -29,7 +29,7 @@ func Test_parseMetricUpdate(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:    "empty url",
+			name:    "empty update",
 			url:     "/update/",
 			want:    nil,
 			wantErr: ErrInvalidMetricType,
