@@ -91,6 +91,7 @@ func TestUpdateMetric(t *testing.T) {
 			w := httptest.NewRecorder()
 			UpdateMetric(w, r, patternUpdate, tt.args.storage)
 			res := w.Result()
+			defer res.Body.Close()
 			assert.Equal(t, res.StatusCode, tt.args.wantCode)
 		})
 	}
