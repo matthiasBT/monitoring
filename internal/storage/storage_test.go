@@ -68,20 +68,18 @@ func TestMemStorage_Add(t *testing.T) {
 				storage.Add(upd)
 			}
 			assert.InDeltaMapValues(
-				t, storage.MetricsGauge,
-				tt.wantGauges,
+				t, tt.wantGauges, storage.MetricsGauge,
 				0.0,
-				"Gauges don't match. Got %v, want %v",
-				storage.MetricsGauge,
+				"Gauges don't match. Expected %v, got %v",
 				tt.wantGauges,
+				storage.MetricsGauge,
 			)
 			assert.InDeltaMapValues(
-				t, storage.MetricsCounter,
-				tt.wantCounters,
+				t, tt.wantCounters, storage.MetricsCounter,
 				0.0,
-				"Counters don't match. Got %v, want %v",
-				storage.MetricsCounter,
+				"Counters don't match. Expected %v, got %v",
 				tt.wantCounters,
+				storage.MetricsCounter,
 			)
 		})
 	}
