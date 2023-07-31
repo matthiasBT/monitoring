@@ -26,13 +26,17 @@ type MemStorage struct {
 }
 
 func (storage *MemStorage) Add(update MetricUpdate) {
+	fmt.Printf("Updating metrics with %+v\n", update)
 	switch update.Type {
 	case TypeGauge:
+		fmt.Printf("Old metric value: %f\n", storage.MetricsGauge[update.Name])
 		val, _ := strconv.ParseFloat(update.Value, 64)
 		storage.MetricsGauge[update.Name] = val
+		fmt.Printf("New metric value: %f\n", storage.MetricsGauge[update.Name])
 	case TypeCounter:
+		fmt.Printf("Old metric value: %d\n", storage.MetricsCounter[update.Name])
 		val, _ := strconv.ParseInt(update.Value, 10, 64)
 		storage.MetricsCounter[update.Name] += val
+		fmt.Printf("New metric value: %d\n", storage.MetricsCounter[update.Name])
 	}
-	fmt.Printf("Updated metrics with %+v\n", update)
 }
