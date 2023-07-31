@@ -19,8 +19,9 @@ func updateMetric(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc(patternUpdate, updateMetric)
-	err := http.ListenAndServe(addr, nil)
+	mux := http.NewServeMux()
+	mux.HandleFunc(patternUpdate, updateMetric)
+	err := http.ListenAndServe(addr, mux)
 	if err != nil {
 		panic(err)
 	}

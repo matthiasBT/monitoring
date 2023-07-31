@@ -7,7 +7,6 @@ import (
 	"net/http"
 )
 
-// todo: check headers for requests and responses like in the lesson
 func UpdateMetric(w http.ResponseWriter, r *http.Request, patternUpdate string, storage storage.MemStorage) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
