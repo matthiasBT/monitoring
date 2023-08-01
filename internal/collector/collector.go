@@ -56,7 +56,7 @@ func Collect(pollCnt int) *Snapshot {
 			"PollCount": int64(pollCnt),
 		},
 	}
-	fmt.Println("Created another collector snapshot")
+	fmt.Println("Created another metrics snapshot")
 	return result
 }
 
@@ -96,7 +96,7 @@ func reportMetric(addr string, path string) {
 	}
 	resp, err := http.Post(u.String(), "text/plain", nil)
 	if err != nil {
-		fmt.Printf("Failed to report collector. POST %v: %v\n", path, err.Error())
+		fmt.Printf("Failed to report a metric. POST %v: %v\n", path, err.Error())
 		return
 	}
 	resp.Body.Close()

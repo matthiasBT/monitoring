@@ -26,7 +26,7 @@ type MemStorage struct {
 }
 
 func (storage *MemStorage) Add(update MetricUpdate) {
-	fmt.Printf("Updating collector with %+v\n", update)
+	fmt.Printf("Updating metrics with %+v\n", update)
 	switch update.Type {
 	case TypeGauge:
 		fmt.Printf("Old metric value: %f\n", storage.MetricsGauge[update.Name])
