@@ -1,4 +1,4 @@
-package metrics
+package collector
 
 import (
 	"fmt"
@@ -56,7 +56,7 @@ func Collect(pollCnt int) *Snapshot {
 			"PollCount": int64(pollCnt),
 		},
 	}
-	fmt.Println("Created another metrics snapshot")
+	fmt.Println("Created another collector snapshot")
 	return result
 }
 

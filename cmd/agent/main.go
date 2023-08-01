@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/matthiasBT/monitoring/internal/metrics"
+	"github.com/matthiasBT/monitoring/internal/collector"
 	"time"
 )
 
@@ -13,12 +13,12 @@ const patternUpdate = "/update"
 
 func main() {
 	pollCnt := 0
-	var wrapper metrics.SnapshotWrapper
-	go metrics.Report(&wrapper, reportInterval, serverAddr, patternUpdate)
+	var wrapper collector.SnapshotWrapper
+	go collector.Report(&wrapper, reportInterval, serverAddr, patternUpdate)
 	for {
 		pollCnt += 1
 		fmt.Printf("Starting iteration %v\n", pollCnt)
-		wrapper.CurrSnapshot = metrics.Collect(pollCnt)
+		wrapper.CurrSnapshot = collector.Collect(pollCnt)
 		fmt.Printf("Finished iteration %v\n", pollCnt)
 		time.Sleep(pollInterval)
 	}
