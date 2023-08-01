@@ -11,7 +11,6 @@ const reportInterval = 10 * time.Second
 const serverAddr = ":8080"
 const patternUpdate = "/update"
 
-// todo: handle errors better?
 func main() {
 	pollCnt := 0
 	var wrapper metrics.SnapshotWrapper

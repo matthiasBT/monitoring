@@ -94,6 +94,9 @@ func reportMetric(addr string, path string) {
 		Host:   addr,
 		Path:   path,
 	}
-	resp, _ := http.Post(u.String(), "text/plain", nil)
-	defer resp.Body.Close()
+	resp, err := http.Post(u.String(), "text/plain", nil)
+	if err != nil {
+		fmt.Printf("Failed to report metrics. POST %v: %v\n", path, err.Error())
+	}
+	resp.Body.Close()
 }
