@@ -74,7 +74,7 @@ func (storage *MemStorage) Get(mType string, name string) (*string, error) {
 	switch mType {
 	case TypeGauge:
 		if val, ok := storage.MetricsGauge[name]; ok {
-			res := fmt.Sprintf("%f", val)
+			res := strconv.FormatFloat(val, 'f', -1, 64)
 			return &res, nil
 		}
 		fmt.Printf("No such Gauge metric")
