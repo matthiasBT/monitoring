@@ -36,7 +36,10 @@ func GetMetric(c echo.Context, stor *storage.MemStorage) error {
 	mType := c.Param("type")
 	name := c.Param("name")
 	val, err := stor.Get(mType, name)
-	if err != nil {
+	switch {
+	case errors.Is(err, storage.ErrUnknownMetricName) || errors.Is(err, storage.ErrInvalidMetricType):
+		c.String(http.StatusNotFound, err.Error())
+	default:
 		return err
 	}
 	c.String(http.StatusOK, *val)
