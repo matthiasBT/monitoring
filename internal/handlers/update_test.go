@@ -1,97 +1,83 @@
 package handlers
 
 import (
+	"github.com/labstack/echo/v4"
 	"github.com/matthiasBT/monitoring/internal/storage"
+	"github.com/stretchr/testify/assert"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 )
 
-const patternUpdate = "/update/"
-
-//func TestUpdateMetric(t *testing.T) {
-//	type args struct {
-//		method   string
-//		url      string
-//		wantCode int
-//		storage  *storage.MemStorage
-//	}
-//	tests := []struct {
-//		name string
-//		args args
-//	}{
-//		{
-//			name: "get request",
-//			args: args{
-//				method:   http.MethodGet,
-//				url:      "/update/counter/Counter1/25",
-//				wantCode: http.StatusMethodNotAllowed,
-//				storage:  emptyStorage(),
-//			},
-//		},
-//		{
-//			name: "correct counter update",
-//			args: args{
-//				method:   http.MethodPost,
-//				url:      "/update/counter/Counter1/25",
-//				wantCode: http.StatusOK,
-//				storage:  emptyStorage(),
-//			},
-//		},
-//		{
-//			name: "correct gauge update",
-//			args: args{
-//				method:   http.MethodPost,
-//				url:      "/update/gauge/Gauge/25.4",
-//				wantCode: http.StatusOK,
-//				storage:  emptyStorage(),
-//			},
-//		},
-//		{
-//			name: "empty update",
-//			args: args{
-//				method:   http.MethodPost,
-//				url:      "/update/",
-//				wantCode: http.StatusBadRequest,
-//				storage:  emptyStorage(),
-//			},
-//		},
-//		{
-//			name: "missing metric name",
-//			args: args{
-//				method:   http.MethodPost,
-//				url:      "/update/counter",
-//				wantCode: http.StatusNotFound,
-//				storage:  emptyStorage(),
-//			},
-//		},
-//		{
-//			name: "missing metric value",
-//			args: args{
-//				method:   http.MethodPost,
-//				url:      "/update/counter/Counter1",
-//				wantCode: http.StatusBadRequest,
-//				storage:  emptyStorage(),
-//			},
-//		},
-//		{
-//			name: "invalid metric type",
-//			args: args{
-//				method:   http.MethodPost,
-//				url:      "/update/hist/Counter1/4",
-//				wantCode: http.StatusBadRequest,
-//				storage:  emptyStorage(),
-//			},
-//		},
-//	}
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			r := httptest.NewRequest(tt.args.method, tt.args.url, nil)
-//			w := httptest.NewRecorder()
-//			UpdateMetric(w, r, patternUpdate, tt.args.storage)
-//			res := w.Result()
-//			defer res.Body.Close()
-//			assert.Equal(t, res.StatusCode, tt.args.wantCode)
-//		})
-//	}
-//}
+func TestUpdateMetric(t *testing.T) {
+	type args struct {
+		method   string
+		url      string
+		params   []string
+		wantCode int
+		storage  *storage.MemStorage
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "correct counter update",
+			args: args{
+				method:   http.MethodPost,
+				url:      "/update/counter/Counter1/25",
+				params:   []string{"counter", "Counter1", "25"},
+				wantCode: http.StatusOK,
+				storage:  emptyStorage(),
+			},
+		},
+		{
+			name: "correct gauge update",
+			args: args{
+				method:   http.MethodPost,
+				url:      "/update/gauge/Gauge1/25.4",
+				params:   []string{"gauge", "Gauge1", "25.4"},
+				wantCode: http.StatusOK,
+				storage:  emptyStorage(),
+			},
+		},
+		{
+			name: "missing metric name",
+			args: args{
+				method:   http.MethodPost,
+				url:      "/update/counter//4",
+				params:   []string{"counter", "", "4"},
+				wantCode: http.StatusNotFound,
+				storage:  emptyStorage(),
+			},
+		},
+		{
+			name: "invalid metric type",
+			args: args{
+				method:   http.MethodPost,
+				url:      "/update/hist/Hist1/4.879",
+				params:   []string{"hist", "Hist1", "4.879"},
+				wantCode: http.StatusBadRequest,
+				storage:  emptyStorage(),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			r := httptest.NewRequest(tt.args.method, tt.args.url, nil)
+			w := httptest.NewRecorder()
+			c := e.NewContext(r, w)
+			c.SetPath("/update/:type/:name/:value")
+			c.SetParamNames("type", "name", "value")
+			c.SetParamValues(tt.args.params...)
+			UpdateMetric(c, tt.args.storage)
+			res := w.Result()
+			defer res.Body.Close()
+			assert.Equal(t, tt.args.wantCode, res.StatusCode)
+		})
+	}
+}
 
 func emptyStorage() *storage.MemStorage {
 	return &storage.MemStorage{
