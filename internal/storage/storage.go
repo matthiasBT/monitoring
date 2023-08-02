@@ -78,17 +78,17 @@ func (storage *MemStorage) Get(mType string, name string) (*string, error) {
 			res := strconv.FormatFloat(val, 'f', -1, 64)
 			return &res, nil
 		}
-		fmt.Printf("No such Gauge metric")
+		fmt.Println("No such Gauge metric")
 		return nil, ErrUnknownMetricName
 	case TypeCounter:
 		if val, ok := storage.MetricsCounter[name]; ok {
 			res := fmt.Sprintf("%d", val)
 			return &res, nil
 		}
-		fmt.Printf("No such Counter metric")
+		fmt.Println("No such Counter metric")
 		return nil, ErrUnknownMetricName
 	default:
-		fmt.Printf("Invalid metric type")
+		fmt.Println("Invalid metric type")
 		return nil, ErrInvalidMetricType
 	}
 }
