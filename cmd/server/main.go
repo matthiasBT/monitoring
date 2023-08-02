@@ -9,13 +9,13 @@ import (
 
 const addr = ":8080"
 
-var MetricsStorage = storage.MemStorage{
+var metricsStorage = storage.MemStorage{
 	MetricsGauge:   make(map[string]float64),
 	MetricsCounter: make(map[string]int64),
 }
 
 func updateMetric(c echo.Context) error {
-	return handlers.UpdateMetric(c, &MetricsStorage)
+	return handlers.UpdateMetric(c, &metricsStorage)
 }
 
 func main() {
