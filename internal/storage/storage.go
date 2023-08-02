@@ -46,6 +46,7 @@ func (m MetricUpdate) Validate() error {
 
 type Storage interface {
 	Add(update MetricUpdate) error
+	Get(mType string, name string) (*string, error)
 }
 
 type MemStorage struct {
