@@ -22,6 +22,7 @@ var (
 	ErrInvalidMetricType = errors.New("invalid metric type")
 	ErrMissingMetricName = errors.New("missing metric name")
 	ErrInvalidMetricVal  = errors.New("invalid metric value")
+	ErrUnknownMetricName = errors.New("unknown metric name")
 )
 
 func (m MetricUpdate) Validate() error {
@@ -65,5 +66,28 @@ func (storage *MemStorage) Add(update MetricUpdate) {
 		val, _ := strconv.ParseInt(update.Value, 10, 64)
 		storage.MetricsCounter[update.Name] += val
 		fmt.Printf("New metric value: %d\n", storage.MetricsCounter[update.Name])
+	}
+}
+
+func (storage *MemStorage) Get(mType string, name string) (*string, error) {
+	fmt.Printf("Getting metric of type %s named %s\n", mType, name)
+	switch mType {
+	case TypeGauge:
+		if val, ok := storage.MetricsGauge[name]; ok {
+			res := fmt.Sprintf("%f", val)
+			return &res, nil
+		}
+		fmt.Printf("No such Gauge metric")
+		return nil, ErrUnknownMetricName
+	case TypeCounter:
+		if val, ok := storage.MetricsCounter[name]; ok {
+			res := fmt.Sprintf("%d", val)
+			return &res, nil
+		}
+		fmt.Printf("No such Counter metric")
+		return nil, ErrUnknownMetricName
+	default:
+		fmt.Printf("Invalid metric type")
+		return nil, ErrInvalidMetricType
 	}
 }

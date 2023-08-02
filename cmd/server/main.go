@@ -18,10 +18,20 @@ func updateMetric(c echo.Context) error {
 	return handlers.UpdateMetric(c, &metricsStorage)
 }
 
+func getMetric(c echo.Context) error {
+	return handlers.GetMetric(c, &metricsStorage)
+}
+
+func getAllMetrics(c echo.Context) error {
+	return handlers.GetAllMetrics(c, &metricsStorage)
+}
+
 func main() {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.POST("/update/:type/:name/:value", updateMetric)
+	e.GET("/value/:type/:name", getMetric)
+	e.GET("/", getAllMetrics)
 	e.Logger.Fatal(e.Start(addr))
 }

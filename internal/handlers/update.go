@@ -31,3 +31,18 @@ func UpdateMetric(c echo.Context, stor *storage.MemStorage) error {
 	}
 	return nil
 }
+
+func GetMetric(c echo.Context, stor *storage.MemStorage) error {
+	mType := c.Param("type")
+	name := c.Param("name")
+	val, err := stor.Get(mType, name)
+	if err != nil {
+		return err
+	}
+	c.String(http.StatusOK, *val)
+	return nil
+}
+
+func GetAllMetrics(c echo.Context, stor *storage.MemStorage) error {
+	return nil
+}
