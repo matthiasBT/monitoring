@@ -1,30 +1,21 @@
 package handlers
 
 import (
-	"errors"
-	"fmt"
+	"github.com/labstack/echo/v4"
 	"github.com/matthiasBT/monitoring/internal/storage"
 	"net/http"
 )
 
-func UpdateMetric(w http.ResponseWriter, r *http.Request, patternUpdate string, stor *storage.MemStorage) {
-	fmt.Printf("Request: %v %v\n", r.Method, r.URL)
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
+func UpdateMetric(c echo.Context, stor *storage.MemStorage) error {
+	metricUpdate := storage.MetricUpdate{
+		Type:  c.Param("type"),
+		Name:  c.Param("name"),
+		Value: c.Param("value"),
 	}
-	metricUpdate, err := parseMetricUpdate(r.URL.Path, patternUpdate)
-	if err == nil {
-		stor.Add(*metricUpdate)
-		w.WriteHeader(http.StatusOK)
-		return
+	if err := metricUpdate.Validate(); err != nil {
+		return err
 	}
-	switch {
-	case errors.Is(err, ErrInvalidMetricType):
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	case errors.Is(err, ErrMissingMetricName):
-		http.Error(w, err.Error(), http.StatusNotFound)
-	case errors.Is(err, ErrInvalidMetricVal):
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
+	stor.Add(metricUpdate)
+	c.Response().WriteHeader(http.StatusOK)
+	return nil
 }

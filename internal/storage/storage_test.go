@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -81,6 +82,74 @@ func TestMemStorage_Add(t *testing.T) {
 				tt.wantCounters,
 				storage.MetricsCounter,
 			)
+		})
+	}
+}
+
+func TestMetricUpdate_Validate(t *testing.T) {
+	type fields struct {
+		Type  string
+		Name  string
+		Value string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr error
+	}{
+		{
+			name:    "correct gauge update",
+			fields:  fields{"gauge", "Gauge1", "123.4"},
+			wantErr: nil,
+		},
+		{
+			name:    "correct counter update",
+			fields:  fields{"counter", "Counter1", "123"},
+			wantErr: nil,
+		},
+		{
+			name:    "incorrect counter update with float",
+			fields:  fields{"counter", "Counter1", "123.4"},
+			wantErr: ErrInvalidMetricVal,
+		},
+		{
+			name:    "invalid metric type",
+			fields:  fields{"hist", "Hist1", "0.567"},
+			wantErr: ErrInvalidMetricType,
+		},
+		{
+			name:    "missing metric name",
+			fields:  fields{"counter", "", "4"},
+			wantErr: ErrMissingMetricName,
+		},
+		{
+			name:    "missing metric name with only whitespace chars",
+			fields:  fields{"counter", "   \t\r\n\f   ", "4"},
+			wantErr: ErrMissingMetricName,
+		},
+		{
+			name:    "invalid counter value",
+			fields:  fields{"counter", "Counter1", "four"},
+			wantErr: ErrInvalidMetricVal,
+		},
+		{
+			name:    "invalid gauge value",
+			fields:  fields{"gauge", "Gauge1", "four-point-six"},
+			wantErr: ErrInvalidMetricVal,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := MetricUpdate{
+				Type:  tt.fields.Type,
+				Name:  tt.fields.Name,
+				Value: tt.fields.Value,
+			}
+			err := m.Validate()
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("MetricUpdate.Validate error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
 		})
 	}
 }

@@ -1,8 +1,10 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -14,6 +16,31 @@ type MetricUpdate struct {
 	Type  string
 	Name  string
 	Value string
+}
+
+var (
+	ErrInvalidMetricType = errors.New("invalid metric type")
+	ErrMissingMetricName = errors.New("missing metric name")
+	ErrInvalidMetricVal  = errors.New("invalid metric value")
+)
+
+func (m MetricUpdate) Validate() error {
+	if strings.TrimSpace(m.Name) == "" {
+		return ErrMissingMetricName
+	}
+	switch m.Type {
+	case TypeGauge:
+		if _, err := strconv.ParseFloat(m.Value, 64); err != nil {
+			return ErrInvalidMetricVal
+		}
+	case TypeCounter:
+		if _, err := strconv.ParseInt(m.Value, 10, 64); err != nil {
+			return ErrInvalidMetricVal
+		}
+	default:
+		return ErrInvalidMetricType
+	}
+	return nil
 }
 
 type Storage interface {
