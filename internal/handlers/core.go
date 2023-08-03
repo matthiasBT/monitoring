@@ -37,7 +37,7 @@ func GetMetric(c echo.Context, stor *storage.MemStorage) error {
 	name := c.Param("name")
 	val, err := stor.Get(mType, name)
 	if err == nil {
-		c.String(http.StatusOK, *val)
+		c.String(http.StatusOK, val)
 		return nil
 	}
 	switch {

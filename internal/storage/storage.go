@@ -46,7 +46,7 @@ func (m MetricUpdate) Validate() error {
 
 type Storage interface {
 	Add(update MetricUpdate) error
-	Get(mType string, name string) (*string, error)
+	Get(mType string, name string) (string, error)
 	GetAll() map[string]string
 }
 
@@ -71,27 +71,26 @@ func (storage *MemStorage) Add(update MetricUpdate) {
 	}
 }
 
-// todo: tests
-func (storage *MemStorage) Get(mType string, name string) (*string, error) {
+func (storage *MemStorage) Get(mType string, name string) (string, error) {
 	fmt.Printf("Getting metric of type %s named %s\n", mType, name)
 	switch mType {
 	case TypeGauge:
 		if val, ok := storage.MetricsGauge[name]; ok {
 			res := strconv.FormatFloat(val, 'f', -1, 64)
-			return &res, nil
+			return res, nil
 		}
 		fmt.Println("No such Gauge metric")
-		return nil, ErrUnknownMetricName
+		return "", ErrUnknownMetricName
 	case TypeCounter:
 		if val, ok := storage.MetricsCounter[name]; ok {
 			res := fmt.Sprintf("%d", val)
-			return &res, nil
+			return res, nil
 		}
 		fmt.Println("No such Counter metric")
-		return nil, ErrUnknownMetricName
+		return "", ErrUnknownMetricName
 	default:
 		fmt.Println("Invalid metric type")
-		return nil, ErrInvalidMetricType
+		return "", ErrInvalidMetricType
 	}
 }
 
@@ -99,11 +98,11 @@ func (storage *MemStorage) GetAll() map[string]string {
 	res := make(map[string]string, len(storage.MetricsGauge)+len(storage.MetricsCounter))
 	for name := range storage.MetricsGauge {
 		valStr, _ := storage.Get(TypeGauge, name)
-		res[name] = *valStr
+		res[name] = valStr
 	}
 	for name := range storage.MetricsCounter {
 		valStr, _ := storage.Get(TypeCounter, name)
-		res[name] = *valStr
+		res[name] = valStr
 	}
 	return res
 }

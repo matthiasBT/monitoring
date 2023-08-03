@@ -153,3 +153,114 @@ func TestMetricUpdate_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestMemStorage_Get(t *testing.T) {
+	type fields struct {
+		MetricsGauge   map[string]float64
+		MetricsCounter map[string]int64
+	}
+	type args struct {
+		mType string
+		name  string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    string
+		wantErr error
+	}{
+		{
+			name: "get existing gauge",
+			fields: fields{
+				MetricsGauge:   map[string]float64{"Gauge1": 0.123},
+				MetricsCounter: map[string]int64{},
+			},
+			args: args{
+				mType: "gauge",
+				name:  "Gauge1",
+			},
+			want:    "0.123",
+			wantErr: nil,
+		},
+		{
+			name: "get non-existent gauge",
+			fields: fields{
+				MetricsGauge:   map[string]float64{"Gauge1": 0.123},
+				MetricsCounter: map[string]int64{},
+			},
+			args: args{
+				mType: "gauge",
+				name:  "GaugeX",
+			},
+			want:    "",
+			wantErr: ErrUnknownMetricName,
+		},
+		{
+			name: "get existing counter",
+			fields: fields{
+				MetricsGauge:   map[string]float64{},
+				MetricsCounter: map[string]int64{"Counter1": 56},
+			},
+			args: args{
+				mType: "counter",
+				name:  "Counter1",
+			},
+			want:    "56",
+			wantErr: nil,
+		},
+		{
+			name: "get non-existent counter",
+			fields: fields{
+				MetricsGauge:   map[string]float64{},
+				MetricsCounter: map[string]int64{"Counter1": 56},
+			},
+			args: args{
+				mType: "counter",
+				name:  "CounterX",
+			},
+			want:    "",
+			wantErr: ErrUnknownMetricName,
+		},
+		{
+			name: "get same name metric",
+			fields: fields{
+				MetricsGauge:   map[string]float64{"MemoryAlloc": 45.123},
+				MetricsCounter: map[string]int64{"MemoryAlloc": 56},
+			},
+			args: args{
+				mType: "counter",
+				name:  "MemoryAlloc",
+			},
+			want:    "56",
+			wantErr: nil,
+		},
+		{
+			name: "get metric with incorrect type",
+			fields: fields{
+				MetricsGauge:   map[string]float64{"SomeGauge": 45.123},
+				MetricsCounter: map[string]int64{"SomeCounter": 56},
+			},
+			args: args{
+				mType: "hist",
+				name:  "SomeGauge",
+			},
+			want:    "",
+			wantErr: ErrInvalidMetricType,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := &MemStorage{
+				MetricsGauge:   tt.fields.MetricsGauge,
+				MetricsCounter: tt.fields.MetricsCounter,
+			}
+			got, err := storage.Get(tt.args.mType, tt.args.name)
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("MetricUpdate.Validate error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equalf(t, tt.want, got, "Get(%v, %v)", tt.args.mType, tt.args.name)
+		})
+	}
+}
