@@ -45,7 +45,7 @@ func (m MetricUpdate) Validate() error {
 }
 
 type Storage interface {
-	Add(update MetricUpdate) error
+	Add(update MetricUpdate)
 	Get(mType string, name string) (string, error)
 	GetAll() map[string]string
 }
