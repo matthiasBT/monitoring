@@ -97,11 +97,11 @@ func (storage *MemStorage) Get(mType string, name string) (*string, error) {
 
 func (storage *MemStorage) GetAll() map[string]string {
 	res := make(map[string]string, len(storage.MetricsGauge)+len(storage.MetricsCounter))
-	for name, _ := range storage.MetricsGauge {
+	for name := range storage.MetricsGauge {
 		valStr, _ := storage.Get(TypeGauge, name)
 		res[name] = *valStr
 	}
-	for name, _ := range storage.MetricsCounter {
+	for name := range storage.MetricsCounter {
 		valStr, _ := storage.Get(TypeCounter, name)
 		res[name] = *valStr
 	}
