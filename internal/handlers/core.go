@@ -50,5 +50,6 @@ func GetMetric(c echo.Context, stor *storage.MemStorage) error {
 }
 
 func GetAllMetrics(c echo.Context, stor *storage.MemStorage) error {
-	return nil
+	res := stor.GetAll()
+	return c.Render(http.StatusOK, "all_metrics", res)
 }

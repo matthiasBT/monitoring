@@ -47,6 +47,7 @@ func (m MetricUpdate) Validate() error {
 type Storage interface {
 	Add(update MetricUpdate) error
 	Get(mType string, name string) (*string, error)
+	GetAll() map[string]string
 }
 
 type MemStorage struct {
@@ -70,6 +71,7 @@ func (storage *MemStorage) Add(update MetricUpdate) {
 	}
 }
 
+// todo: tests
 func (storage *MemStorage) Get(mType string, name string) (*string, error) {
 	fmt.Printf("Getting metric of type %s named %s\n", mType, name)
 	switch mType {
@@ -91,4 +93,17 @@ func (storage *MemStorage) Get(mType string, name string) (*string, error) {
 		fmt.Println("Invalid metric type")
 		return nil, ErrInvalidMetricType
 	}
+}
+
+func (storage *MemStorage) GetAll() map[string]string {
+	res := make(map[string]string, len(storage.MetricsGauge)+len(storage.MetricsCounter))
+	for name, _ := range storage.MetricsGauge {
+		valStr, _ := storage.Get(TypeGauge, name)
+		res[name] = *valStr
+	}
+	for name, _ := range storage.MetricsCounter {
+		valStr, _ := storage.Get(TypeCounter, name)
+		res[name] = *valStr
+	}
+	return res
 }
