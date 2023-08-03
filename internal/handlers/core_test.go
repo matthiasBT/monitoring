@@ -4,6 +4,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/matthiasBT/monitoring/internal/storage"
 	"github.com/stretchr/testify/assert"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,7 +12,6 @@ import (
 
 func TestUpdateMetric(t *testing.T) {
 	type args struct {
-		method   string
 		url      string
 		params   []string
 		wantCode int
@@ -24,7 +24,6 @@ func TestUpdateMetric(t *testing.T) {
 		{
 			name: "correct counter update",
 			args: args{
-				method:   http.MethodPost,
 				url:      "/update/counter/Counter1/25",
 				params:   []string{"counter", "Counter1", "25"},
 				wantCode: http.StatusOK,
@@ -34,7 +33,6 @@ func TestUpdateMetric(t *testing.T) {
 		{
 			name: "correct gauge update",
 			args: args{
-				method:   http.MethodPost,
 				url:      "/update/gauge/Gauge1/25.4",
 				params:   []string{"gauge", "Gauge1", "25.4"},
 				wantCode: http.StatusOK,
@@ -44,7 +42,6 @@ func TestUpdateMetric(t *testing.T) {
 		{
 			name: "missing metric name",
 			args: args{
-				method:   http.MethodPost,
 				url:      "/update/counter//4",
 				params:   []string{"counter", "", "4"},
 				wantCode: http.StatusNotFound,
@@ -54,7 +51,6 @@ func TestUpdateMetric(t *testing.T) {
 		{
 			name: "invalid metric type",
 			args: args{
-				method:   http.MethodPost,
 				url:      "/update/hist/Hist1/4.879",
 				params:   []string{"hist", "Hist1", "4.879"},
 				wantCode: http.StatusBadRequest,
@@ -65,7 +61,7 @@ func TestUpdateMetric(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := echo.New()
-			r := httptest.NewRequest(tt.args.method, tt.args.url, nil)
+			r := httptest.NewRequest(http.MethodPost, tt.args.url, nil)
 			w := httptest.NewRecorder()
 			c := e.NewContext(r, w)
 			c.SetPath("/update/:type/:name/:value")
@@ -79,9 +75,100 @@ func TestUpdateMetric(t *testing.T) {
 	}
 }
 
+func TestGetMetric(t *testing.T) {
+	type args struct {
+		url      string
+		params   []string
+		wantCode int
+		wantBody []byte
+		storage  *storage.MemStorage
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "get existing gauge",
+			args: args{
+				url:      "/value/gauge/Gauge1",
+				params:   []string{"gauge", "Gauge1"},
+				wantCode: http.StatusOK,
+				wantBody: []byte("1.23"),
+				storage:  nonEmptyStorage(),
+			},
+		},
+		{
+			name: "get existing counter",
+			args: args{
+				url:      "/value/counter/Counter1",
+				params:   []string{"counter", "Counter1"},
+				wantCode: http.StatusOK,
+				wantBody: []byte("1"),
+				storage:  nonEmptyStorage(),
+			},
+		},
+		{
+			name: "get non-existent gauge",
+			args: args{
+				url:      "/value/gauge/Gauge3",
+				params:   []string{"gauge", "Gauge3"},
+				wantCode: http.StatusNotFound,
+				wantBody: nil,
+				storage:  nonEmptyStorage(),
+			},
+		},
+		{
+			name: "get non-existent counter",
+			args: args{
+				url:      "/value/counter/Counter3",
+				params:   []string{"counter", "Counter3"},
+				wantCode: http.StatusNotFound,
+				wantBody: nil,
+				storage:  nonEmptyStorage(),
+			},
+		},
+		{
+			name: "get metric with invalid type",
+			args: args{
+				url:      "/value/hist/Gauge1",
+				params:   []string{"hist", "Gauge1"},
+				wantCode: http.StatusNotFound,
+				wantBody: nil,
+				storage:  nonEmptyStorage(),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			r := httptest.NewRequest(http.MethodGet, tt.args.url, nil)
+			w := httptest.NewRecorder()
+			c := e.NewContext(r, w)
+			c.SetPath("/value/:type/:name")
+			c.SetParamNames("type", "name")
+			c.SetParamValues(tt.args.params...)
+			GetMetric(c, tt.args.storage)
+			res := w.Result()
+			defer res.Body.Close()
+			body, _ := io.ReadAll(res.Body)
+			if tt.args.wantBody != nil {
+				assert.Equal(t, body, tt.args.wantBody)
+			}
+			assert.Equal(t, tt.args.wantCode, res.StatusCode)
+		})
+	}
+}
+
 func emptyStorage() *storage.MemStorage {
 	return &storage.MemStorage{
 		MetricsGauge:   make(map[string]float64),
 		MetricsCounter: make(map[string]int64),
+	}
+}
+
+func nonEmptyStorage() *storage.MemStorage {
+	return &storage.MemStorage{
+		MetricsGauge:   map[string]float64{"Gauge1": 1.23, "Gauge2": 1.49},
+		MetricsCounter: map[string]int64{"Counter1": 1, "Counter2": 2},
 	}
 }
