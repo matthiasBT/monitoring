@@ -69,7 +69,7 @@ func Report(wrapper *SnapshotWrapper, interval time.Duration, addr string, patte
 		}
 		// saving the address of the current snapshot, so it doesn't get overwritten
 		snapshot := wrapper.CurrSnapshot
-		fmt.Printf("Reporting snapshot, memory address: %v", snapshot)
+		fmt.Printf("Reporting snapshot, memory address: %v\n", snapshot)
 		for name, val := range snapshot.Gauges {
 			path := buildGaugePath(patternUpdate, name, val)
 			reportMetric(addr, path)
@@ -98,10 +98,12 @@ func reportMetric(addr string, path string) {
 		Path:   path,
 	}
 	resp, err := http.Post(u.String(), "text/plain", nil)
-	if err != nil {
+	if err != nil || resp.StatusCode != http.StatusOK {
 		// trying to submit everything we can, hence no aborting the iteration when encountering an error
 		fmt.Printf("Failed to report a metric. POST %v: %v\n", path, err.Error())
 		return
+	} else {
+		fmt.Printf("Success: POST %v\n", path)
 	}
 	resp.Body.Close()
 }
