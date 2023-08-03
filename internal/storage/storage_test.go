@@ -264,3 +264,57 @@ func TestMemStorage_Get(t *testing.T) {
 		})
 	}
 }
+
+func TestMemStorage_GetAll(t *testing.T) {
+	type fields struct {
+		MetricsGauge   map[string]float64
+		MetricsCounter map[string]int64
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   map[string]string
+	}{
+		{
+			name: "empty map",
+			fields: fields{
+				MetricsGauge:   make(map[string]float64),
+				MetricsCounter: make(map[string]int64),
+			},
+			want: make(map[string]string),
+		},
+		{
+			name: "only counters map",
+			fields: fields{
+				MetricsGauge:   make(map[string]float64),
+				MetricsCounter: map[string]int64{"Counter1": 1, "Counter2": 2},
+			},
+			want: map[string]string{"Counter1": "1", "Counter2": "2"},
+		},
+		{
+			name: "only gauges map",
+			fields: fields{
+				MetricsGauge:   map[string]float64{"Gauge1": 1.234, "Gauge2": 2.345},
+				MetricsCounter: make(map[string]int64),
+			},
+			want: map[string]string{"Gauge1": "1.234", "Gauge2": "2.345"},
+		},
+		{
+			name: "both metric types map",
+			fields: fields{
+				MetricsGauge:   map[string]float64{"Gauge1": 1.234, "Gauge2": 2.345},
+				MetricsCounter: map[string]int64{"Counter1": 1, "Counter2": 2},
+			},
+			want: map[string]string{"Gauge1": "1.234", "Gauge2": "2.345", "Counter1": "1", "Counter2": "2"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := &MemStorage{
+				MetricsGauge:   tt.fields.MetricsGauge,
+				MetricsCounter: tt.fields.MetricsCounter,
+			}
+			assert.Equalf(t, tt.want, storage.GetAll(), "GetAll()")
+		})
+	}
+}
