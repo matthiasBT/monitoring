@@ -9,8 +9,7 @@ import (
 func TestCollect(t *testing.T) {
 	snapshot := Collect(12)
 	assert.NotContains(t, snapshot.Gauges, "PollCount")
-	assert.InDeltaMapValues(t, map[string]float64{"PollCount": 12}, snapshot.Counters, 0.0)
-
+	assert.Equalf(t, map[string]int64{"PollCount": 12}, snapshot.Counters, "Counters don't match")
 	gauges := make([]string, 0, len(snapshot.Gauges))
 	for key := range snapshot.Gauges {
 		gauges = append(gauges, key)

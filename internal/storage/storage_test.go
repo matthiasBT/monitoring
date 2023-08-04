@@ -75,13 +75,7 @@ func TestMemStorage_Add(t *testing.T) {
 				tt.wantGauges,
 				storage.MetricsGauge,
 			)
-			assert.InDeltaMapValues(
-				t, tt.wantCounters, storage.MetricsCounter,
-				0.0,
-				"Counters don't match. Expected %v, got %v",
-				tt.wantCounters,
-				storage.MetricsCounter,
-			)
+			assert.Equalf(t, tt.wantCounters, storage.MetricsCounter, "Counters don't match")
 		})
 	}
 }
@@ -314,7 +308,8 @@ func TestMemStorage_GetAll(t *testing.T) {
 				MetricsGauge:   tt.fields.MetricsGauge,
 				MetricsCounter: tt.fields.MetricsCounter,
 			}
-			assert.Equalf(t, tt.want, storage.GetAll(), "GetAll()")
+			res := storage.GetAll()
+			assert.Equalf(t, tt.want, res, "Storage contents don't match. Expected: %v, got: %v", tt.want, res)
 		})
 	}
 }
