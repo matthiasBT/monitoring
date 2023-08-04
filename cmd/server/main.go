@@ -3,11 +3,10 @@ package main
 import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/matthiasBT/monitoring/internal/config"
 	"github.com/matthiasBT/monitoring/internal/handlers"
 	"github.com/matthiasBT/monitoring/internal/storage"
 )
-
-const addr = ":8080"
 
 var metricsStorage = storage.MemStorage{
 	MetricsGauge:   make(map[string]float64),
@@ -27,6 +26,7 @@ func getAllMetrics(c echo.Context) error {
 }
 
 func main() {
+	conf := config.InitServerConfig()
 	e := echo.New()
 	e.Renderer = handlers.GetRenderer("web/template/*.html")
 	e.Use(middleware.Logger())
@@ -34,5 +34,5 @@ func main() {
 	e.POST("/update/:type/:name/:value", updateMetric)
 	e.GET("/value/:type/:name", getMetric)
 	e.GET("/", getAllMetrics)
-	e.Logger.Fatal(e.Start(addr))
+	e.Logger.Fatal(e.Start(conf.Addr))
 }
