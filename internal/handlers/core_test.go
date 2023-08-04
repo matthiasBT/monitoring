@@ -172,3 +172,62 @@ func nonEmptyStorage() *storage.MemStorage {
 		MetricsCounter: map[string]int64{"Counter1": 1, "Counter2": 2},
 	}
 }
+
+func TestGetAllMetrics(t *testing.T) {
+	tests := []struct {
+		name     string
+		stor     *storage.MemStorage
+		wantBody []byte
+		wantErr  error
+		wantCode int
+	}{
+		{
+			name: "empty metrics table",
+			stor: emptyStorage(),
+			wantBody: []byte(`<html>
+<body>
+<h1>Metrics table</h1>
+<ul>
+    
+</ul>
+</body>
+</html>`),
+			wantCode: http.StatusOK,
+			wantErr:  nil,
+		},
+		{
+			name: "non-empty metrics table",
+			stor: nonEmptyStorage(),
+			wantBody: []byte(`<html>
+<body>
+<h1>Metrics table</h1>
+<ul>
+    <li> Counter1 : 1 </li>
+    <li> Counter2 : 2 </li>
+    <li> Gauge1 : 1.23 </li>
+    <li> Gauge2 : 1.49 </li>
+    
+</ul>
+</body>
+</html>`),
+			wantCode: http.StatusOK,
+			wantErr:  nil,
+		},
+	}
+	for _, tt := range tests {
+		e := echo.New()
+		e.Renderer = GetRenderer("../../web/template/*.html")
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		w := httptest.NewRecorder()
+		c := e.NewContext(r, w)
+		c.SetPath("/")
+		GetAllMetrics(c, tt.stor)
+		res := w.Result()
+		defer res.Body.Close()
+		body, _ := io.ReadAll(res.Body)
+		if tt.wantBody != nil {
+			assert.Equal(t, string(tt.wantBody), string(body))
+		}
+		assert.Equal(t, tt.wantCode, res.StatusCode)
+	}
+}
