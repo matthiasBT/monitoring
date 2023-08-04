@@ -13,7 +13,7 @@ func main() {
 	conf := config.InitAgentConfig()
 	pollCnt := 0
 	var wrapper collector.SnapshotWrapper
-	go collector.Report(&wrapper, time.Duration(conf.ReportInterval)*time.Second, conf.ServerAddr, patternUpdate)
+	go collector.Report(&wrapper, time.Duration(conf.ReportInterval)*time.Second, conf.Addr, patternUpdate)
 	for {
 		pollCnt += 1
 		fmt.Printf("Starting iteration %v\n", pollCnt)
