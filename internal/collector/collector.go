@@ -98,6 +98,9 @@ func reportMetric(addr string, path string) {
 		Path:   path,
 	}
 	resp, err := http.Post(u.String(), "text/plain", nil)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil || resp.StatusCode != http.StatusOK {
 		// trying to submit everything we can, hence no aborting the iteration when encountering an error
 		fmt.Printf("Failed to report a metric. POST %v: %v\n", path, err.Error())
@@ -105,5 +108,4 @@ func reportMetric(addr string, path string) {
 	} else {
 		fmt.Printf("Success: POST %v\n", path)
 	}
-	resp.Body.Close()
 }
