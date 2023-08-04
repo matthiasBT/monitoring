@@ -14,11 +14,11 @@ type AgentConfig struct {
 func InitAgentConfig() *AgentConfig {
 	conf := new(AgentConfig)
 	addr := flag.String("a", "localhost:8080", "Server address. Usage: -a=host:port")
-	reportInterval := flag.Duration("r", 10, "How often to send metrics to the server, seconds")
-	pollInterval := flag.Duration("p", 2, "How often to query metrics, seconds")
+	reportInterval := flag.Uint("r", 10, "How often to send metrics to the server, seconds")
+	pollInterval := flag.Uint("p", 2, "How often to query metrics, seconds")
 	flag.Parse()
 	conf.ServerAddr = *addr
-	conf.ReportInterval = *reportInterval * time.Second
-	conf.PollInterval = *pollInterval * time.Second
+	conf.ReportInterval = time.Duration(*reportInterval) * time.Second
+	conf.PollInterval = time.Duration(*pollInterval) * time.Second
 	return conf
 }
