@@ -8,31 +8,25 @@ import (
 	"github.com/matthiasBT/monitoring/internal/storage"
 )
 
+const templatePath = "web/template/*.html"
+
 var metricsStorage = storage.MemStorage{
 	MetricsGauge:   make(map[string]float64),
 	MetricsCounter: make(map[string]int64),
 }
 
-func updateMetric(c echo.Context) error {
-	return handlers.UpdateMetric(c, &metricsStorage)
-}
-
-func getMetric(c echo.Context) error {
-	return handlers.GetMetric(c, &metricsStorage)
-}
-
-func getAllMetrics(c echo.Context) error {
-	return handlers.GetAllMetrics(c, &metricsStorage)
+func setupServer() *echo.Echo {
+	e := echo.New()
+	e.Renderer = handlers.GetRenderer(templatePath)
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+	return e
 }
 
 func main() {
 	conf := config.InitServerConfig()
-	e := echo.New()
-	e.Renderer = handlers.GetRenderer("web/template/*.html")
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-	e.POST("/update/:type/:name/:value", updateMetric)
-	e.GET("/value/:type/:name", getMetric)
-	e.GET("/", getAllMetrics)
+	e := setupServer()
+	c := handlers.NewBaseController(e, &metricsStorage)
+	c.Route("")
 	e.Logger.Fatal(e.Start(conf.Addr))
 }
