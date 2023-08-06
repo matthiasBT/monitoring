@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func UpdateMetric(c echo.Context, stor *storage.MemStorage) error {
+func UpdateMetric(c echo.Context, stor storage.Storage) error {
 	metricUpdate := storage.MetricUpdate{
 		Type:  c.Param("type"),
 		Name:  c.Param("name"),
@@ -32,7 +32,7 @@ func UpdateMetric(c echo.Context, stor *storage.MemStorage) error {
 	return nil
 }
 
-func GetMetric(c echo.Context, stor *storage.MemStorage) error {
+func GetMetric(c echo.Context, stor storage.Storage) error {
 	mType := c.Param("type")
 	name := c.Param("name")
 	val, err := stor.Get(mType, name)
@@ -49,7 +49,7 @@ func GetMetric(c echo.Context, stor *storage.MemStorage) error {
 	return nil
 }
 
-func GetAllMetrics(c echo.Context, stor *storage.MemStorage) error {
+func GetAllMetrics(c echo.Context, stor storage.Storage) error {
 	res := stor.GetAll()
 	return c.Render(http.StatusOK, "all_metrics", res)
 }

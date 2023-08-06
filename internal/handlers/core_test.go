@@ -15,7 +15,7 @@ func TestUpdateMetric(t *testing.T) {
 		url      string
 		params   []string
 		wantCode int
-		storage  *storage.MemStorage
+		storage  storage.Storage
 	}
 	tests := []struct {
 		name string
@@ -81,7 +81,7 @@ func TestGetMetric(t *testing.T) {
 		params   []string
 		wantCode int
 		wantBody []byte
-		storage  *storage.MemStorage
+		storage  storage.Storage
 	}
 	tests := []struct {
 		name string
@@ -159,14 +159,14 @@ func TestGetMetric(t *testing.T) {
 	}
 }
 
-func emptyStorage() *storage.MemStorage {
+func emptyStorage() storage.Storage {
 	return &storage.MemStorage{
 		MetricsGauge:   make(map[string]float64),
 		MetricsCounter: make(map[string]int64),
 	}
 }
 
-func nonEmptyStorage() *storage.MemStorage {
+func nonEmptyStorage() storage.Storage {
 	return &storage.MemStorage{
 		MetricsGauge:   map[string]float64{"Gauge1": 1.23, "Gauge2": 1.49},
 		MetricsCounter: map[string]int64{"Counter1": 1, "Counter2": 2},
@@ -176,7 +176,7 @@ func nonEmptyStorage() *storage.MemStorage {
 func TestGetAllMetrics(t *testing.T) {
 	tests := []struct {
 		name     string
-		stor     *storage.MemStorage
+		stor     storage.Storage
 		wantBody []byte
 		wantErr  error
 		wantCode int
