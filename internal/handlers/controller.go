@@ -14,12 +14,11 @@ func NewBaseController(e *echo.Echo, stor storage.Storage) *BaseController {
 	return &BaseController{e: e, stor: stor}
 }
 
-func (c *BaseController) Route(prefix string) *echo.Group {
+func (c *BaseController) Route(prefix string) {
 	g := c.e.Group(prefix)
 	g.POST("/update/:type/:name/:value", c.updateMetric)
 	g.GET("/value/:type/:name", c.getMetric)
 	g.GET("/", c.getAllMetrics)
-	return g
 }
 
 func (c *BaseController) updateMetric(ctx echo.Context) error {

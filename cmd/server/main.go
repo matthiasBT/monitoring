@@ -10,11 +10,6 @@ import (
 
 const templatePath = "web/template/*.html"
 
-var metricsStorage = storage.MemStorage{
-	MetricsGauge:   make(map[string]float64),
-	MetricsCounter: make(map[string]int64),
-}
-
 func setupServer() *echo.Echo {
 	e := echo.New()
 	e.Renderer = handlers.GetRenderer(templatePath)
@@ -26,7 +21,10 @@ func setupServer() *echo.Echo {
 func main() {
 	conf := config.InitServerConfig()
 	e := setupServer()
-	c := handlers.NewBaseController(e, &metricsStorage)
+	c := handlers.NewBaseController(e, &storage.MemStorage{
+		MetricsGauge:   make(map[string]float64),
+		MetricsCounter: make(map[string]int64),
+	})
 	c.Route("")
 	e.Logger.Fatal(e.Start(conf.Addr))
 }
