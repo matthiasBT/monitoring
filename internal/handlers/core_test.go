@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	"github.com/labstack/echo/v4"
-	"github.com/matthiasBT/monitoring/internal/storage"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/labstack/echo/v4"
+	"github.com/matthiasBT/monitoring/internal/storage"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestUpdateMetric(t *testing.T) {

@@ -1,9 +1,10 @@
 package collector
 
 import (
-	"github.com/stretchr/testify/assert"
 	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCollect(t *testing.T) {

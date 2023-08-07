@@ -2,9 +2,10 @@ package handlers
 
 import (
 	"errors"
+	"net/http"
+
 	"github.com/labstack/echo/v4"
 	"github.com/matthiasBT/monitoring/internal/storage"
-	"net/http"
 )
 
 func UpdateMetric(c echo.Context, stor storage.Storage) error {

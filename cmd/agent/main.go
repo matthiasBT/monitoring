@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/matthiasBT/monitoring/internal/collector"
 	"github.com/matthiasBT/monitoring/internal/config"
-	"time"
 )
 
 const patternUpdate = "/update"

@@ -2,8 +2,9 @@ package storage
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMemStorage_Add(t *testing.T) {
