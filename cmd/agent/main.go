@@ -15,7 +15,7 @@ const updateURL = "/update"
 
 func main() {
 	conf := config.InitAgentConfig()
-	context := collector.Context{
+	ctx := collector.Context{
 		PollCount:    0,
 		CurrSnapshot: nil,
 		PollTicker:   time.NewTicker(time.Duration(conf.PollInterval) * time.Second),
@@ -24,8 +24,8 @@ func main() {
 		ServerAddr:   conf.Addr,
 		UpdateURL:    updateURL,
 	}
-	go collector.Report(&context)
-	go collector.Poll(&context)
+	go collector.Report(&ctx)
+	go collector.Poll(&ctx)
 	quitChannel := make(chan os.Signal, 1)
 	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
 	<-quitChannel

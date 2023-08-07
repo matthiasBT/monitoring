@@ -29,7 +29,6 @@ type Context struct {
 }
 
 func Poll(c *Context) {
-	fmt.Println(">>")
 	for {
 		select {
 		case <-c.Done:
