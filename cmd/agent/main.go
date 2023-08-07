@@ -2,24 +2,32 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/matthiasBT/monitoring/internal/collector"
 	"github.com/matthiasBT/monitoring/internal/config"
 )
 
-const patternUpdate = "/update"
+const updateURL = "/update"
 
 func main() {
 	conf := config.InitAgentConfig()
-	pollCnt := 0
-	var wrapper collector.SnapshotWrapper
-	go collector.Report(&wrapper, time.Duration(conf.ReportInterval)*time.Second, conf.Addr, patternUpdate)
-	for {
-		pollCnt += 1
-		fmt.Printf("Starting iteration %v\n", pollCnt)
-		wrapper.CurrSnapshot = collector.Collect(pollCnt)
-		fmt.Printf("Finished iteration %v\n", pollCnt)
-		time.Sleep(time.Duration(conf.PollInterval) * time.Second)
+	context := collector.Context{
+		PollCount:    0,
+		CurrSnapshot: nil,
+		PollTicker:   time.NewTicker(time.Duration(conf.PollInterval) * time.Second),
+		ReportTicker: time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
+		Done:         make(chan bool),
+		ServerAddr:   conf.Addr,
+		UpdateURL:    updateURL,
 	}
+	go collector.Report(&context)
+	go collector.Poll(&context)
+	quitChannel := make(chan os.Signal, 1)
+	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
+	<-quitChannel
+	fmt.Println("Stopping the agent")
 }

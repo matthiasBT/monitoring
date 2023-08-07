@@ -8,11 +8,20 @@ import (
 )
 
 func TestCollect(t *testing.T) {
-	snapshot := Collect(12)
-	assert.NotContains(t, snapshot.Gauges, "PollCount")
-	assert.Equalf(t, map[string]int64{"PollCount": 12}, snapshot.Counters, "Counters don't match")
-	gauges := make([]string, 0, len(snapshot.Gauges))
-	for key := range snapshot.Gauges {
+	c := Context{
+		PollCount:    12,
+		CurrSnapshot: nil,
+		PollTicker:   nil,
+		ReportTicker: nil,
+		Done:         nil,
+		ServerAddr:   "",
+		UpdateURL:    "",
+	}
+	currentSnapshot(&c)
+	assert.NotContains(t, c.CurrSnapshot.Gauges, "PollCount")
+	assert.Equalf(t, map[string]int64{"PollCount": 12}, c.CurrSnapshot.Counters, "Counters don't match")
+	gauges := make([]string, 0, len(c.CurrSnapshot.Gauges))
+	for key := range c.CurrSnapshot.Gauges {
 		gauges = append(gauges, key)
 	}
 	sort.Strings(gauges)

@@ -18,10 +18,35 @@ type SnapshotWrapper struct {
 	CurrSnapshot *Snapshot
 }
 
-func Collect(pollCnt int) *Snapshot {
+type Context struct {
+	PollCount    int64
+	CurrSnapshot *Snapshot
+	PollTicker   *time.Ticker
+	ReportTicker *time.Ticker
+	Done         chan bool
+	ServerAddr   string
+	UpdateURL    string
+}
+
+func Poll(c *Context) {
+	fmt.Println(">>")
+	for {
+		select {
+		case <-c.Done:
+			fmt.Println("Stopping the Poll job")
+			return
+		case tick := <-c.PollTicker.C:
+			c.PollCount += 1
+			fmt.Printf("Poll job #%v is ticking at %v\n", c.PollCount, tick)
+			currentSnapshot(c)
+		}
+	}
+}
+
+func currentSnapshot(c *Context) {
 	var rtm runtime.MemStats
 	runtime.ReadMemStats(&rtm)
-	result := &Snapshot{
+	c.CurrSnapshot = &Snapshot{
 		Gauges: map[string]float64{
 			"Alloc":         float64(rtm.Alloc),
 			"BuckHashSys":   float64(rtm.BuckHashSys),
@@ -53,34 +78,42 @@ func Collect(pollCnt int) *Snapshot {
 			"RandomValue":   rand.Float64(),
 		},
 		Counters: map[string]int64{
-			"PollCount": int64(pollCnt),
+			"PollCount": c.PollCount,
 		},
 	}
 	fmt.Println("Created another metrics snapshot")
-	return result
 }
 
-func Report(wrapper *SnapshotWrapper, interval time.Duration, addr string, patternUpdate string) {
+func Report(c *Context) {
 	for {
-		if wrapper.CurrSnapshot == nil {
-			fmt.Println("Data is not ready yet")
-			time.Sleep(interval)
-			continue
+		select {
+		case <-c.Done:
+			fmt.Println("Stopping the Report job")
+			return
+		case tick := <-c.ReportTicker.C:
+			fmt.Printf("Report job is ticking at %v\n", tick)
+			report(c)
 		}
-		// saving the address of the current snapshot, so it doesn't get overwritten
-		snapshot := wrapper.CurrSnapshot
-		fmt.Printf("Reporting snapshot, memory address: %v\n", snapshot)
-		for name, val := range snapshot.Gauges {
-			path := buildGaugePath(patternUpdate, name, val)
-			reportMetric(addr, path)
-		}
-		for name, val := range snapshot.Counters {
-			path := buildCounterPath(patternUpdate, name, val)
-			reportMetric(addr, path)
-		}
-		fmt.Println("All metrics have been reported")
-		time.Sleep(interval)
 	}
+}
+
+func report(c *Context) {
+	if c.CurrSnapshot == nil {
+		fmt.Println("Data for report is not ready yet")
+		return
+	}
+	// saving the address of the current snapshot, so it doesn't get overwritten
+	snapshot := c.CurrSnapshot
+	fmt.Printf("Reporting snapshot, memory address: %v\n", &snapshot)
+	for name, val := range snapshot.Gauges {
+		path := buildGaugePath(c.UpdateURL, name, val)
+		reportMetric(c.ServerAddr, path)
+	}
+	for name, val := range snapshot.Counters {
+		path := buildCounterPath(c.UpdateURL, name, val)
+		reportMetric(c.ServerAddr, path)
+	}
+	fmt.Println("All metrics have been reported")
 }
 
 func buildGaugePath(patternUpdate string, name string, val float64) string {
