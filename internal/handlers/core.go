@@ -2,55 +2,50 @@ package handlers
 
 import (
 	"errors"
+	"html/template"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
 	"github.com/matthiasBT/monitoring/internal/storage"
 )
 
-func UpdateMetric(c echo.Context, stor storage.Storage) error {
+func UpdateMetric(w http.ResponseWriter, r *http.Request, c *BaseController, params map[string]string) {
 	metricUpdate := storage.MetricUpdate{
-		Type:  c.Param("type"),
-		Name:  c.Param("name"),
-		Value: c.Param("value"),
+		Type:  params["type"],
+		Name:  params["name"],
+		Value: params["value"],
 	}
 	err := metricUpdate.Validate()
 	if err == nil {
-		stor.Add(metricUpdate)
-		c.Response().WriteHeader(http.StatusOK)
-		return nil
+		c.stor.Add(metricUpdate)
+		w.WriteHeader(http.StatusOK)
+		return
 	}
+	w.Write([]byte(err.Error()))
 	switch {
 	case errors.Is(err, storage.ErrInvalidMetricType):
-		c.String(http.StatusBadRequest, err.Error())
+		w.WriteHeader(http.StatusBadRequest)
 	case errors.Is(err, storage.ErrMissingMetricName):
-		c.String(http.StatusNotFound, err.Error())
+		w.WriteHeader(http.StatusNotFound)
 	case errors.Is(err, storage.ErrInvalidMetricVal):
-		c.String(http.StatusBadRequest, err.Error())
-	default:
-		return err
+		w.WriteHeader(http.StatusBadRequest)
 	}
-	return nil
 }
 
-func GetMetric(c echo.Context, stor storage.Storage) error {
-	mType := c.Param("type")
-	name := c.Param("name")
-	val, err := stor.Get(mType, name)
+func GetMetric(w http.ResponseWriter, r *http.Request, c *BaseController, params map[string]string) {
+	val, err := c.stor.Get(params["type"], params["name"])
 	if err == nil {
-		c.String(http.StatusOK, val)
-		return nil
+		w.Write([]byte(val))
+		w.WriteHeader(http.StatusOK)
+		return
 	}
-	switch {
-	case errors.Is(err, storage.ErrUnknownMetricName) || errors.Is(err, storage.ErrInvalidMetricType):
-		c.String(http.StatusNotFound, err.Error())
-	default:
-		return err
+	w.Write([]byte(err.Error()))
+	if errors.Is(err, storage.ErrUnknownMetricName) || errors.Is(err, storage.ErrInvalidMetricType) {
+		w.WriteHeader(http.StatusNotFound)
 	}
-	return nil
 }
 
-func GetAllMetrics(c echo.Context, stor storage.Storage) error {
-	res := stor.GetAll()
-	return c.Render(http.StatusOK, "all_metrics", res)
+func GetAllMetrics(w http.ResponseWriter, r *http.Request, c *BaseController) {
+	data := c.stor.GetAll()
+	tmpl := template.Must(template.ParseFiles("web/template/all_metrics.html"))
+	tmpl.Execute(w, data) // todo: handle error
 }

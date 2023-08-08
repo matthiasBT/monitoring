@@ -1,34 +1,46 @@
 package handlers
 
 import (
-	"github.com/labstack/echo/v4"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
 	"github.com/matthiasBT/monitoring/internal/storage"
 )
 
 type BaseController struct {
-	e    *echo.Echo
 	stor storage.Storage
 }
 
-func NewBaseController(e *echo.Echo, stor storage.Storage) *BaseController {
-	return &BaseController{e: e, stor: stor}
+func NewBaseController(stor storage.Storage) *BaseController {
+	return &BaseController{stor: stor}
 }
 
-func (c *BaseController) Route(prefix string) {
-	g := c.e.Group(prefix)
-	g.POST("/update/:type/:name/:value", c.updateMetric)
-	g.GET("/value/:type/:name", c.getMetric)
-	g.GET("/", c.getAllMetrics)
+func (c *BaseController) Route() *chi.Mux {
+	r := chi.NewRouter()
+	r.Post("/update/{type}/{name}/{value}", c.updateMetric)
+	r.Get("/value/{type}/{name}", c.getMetric)
+	r.Get("/", c.getAllMetrics)
+	return r
 }
 
-func (c *BaseController) updateMetric(ctx echo.Context) error {
-	return UpdateMetric(ctx, c.stor)
+func (c *BaseController) updateMetric(w http.ResponseWriter, r *http.Request) {
+	params := extractParams(r, "type", "name", "value")
+	UpdateMetric(w, r, c, params)
 }
 
-func (c *BaseController) getMetric(ctx echo.Context) error {
-	return GetMetric(ctx, c.stor)
+func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
+	params := extractParams(r, "type", "name")
+	GetMetric(w, r, c, params)
 }
 
-func (c *BaseController) getAllMetrics(ctx echo.Context) error {
-	return GetAllMetrics(ctx, c.stor)
+func (c *BaseController) getAllMetrics(w http.ResponseWriter, r *http.Request) {
+	GetAllMetrics(w, r, c)
+}
+
+func extractParams(r *http.Request, names ...string) map[string]string {
+	var params = make(map[string]string)
+	for _, name := range names {
+		params[name] = chi.URLParam(r, name)
+	}
+	return params
 }
