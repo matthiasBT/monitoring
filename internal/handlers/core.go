@@ -8,7 +8,7 @@ import (
 	"github.com/matthiasBT/monitoring/internal/storage"
 )
 
-func UpdateMetric(w http.ResponseWriter, r *http.Request, c *BaseController, params map[string]string) {
+func UpdateMetric(w http.ResponseWriter, c *BaseController, params map[string]string) {
 	metricUpdate := storage.MetricUpdate{
 		Type:  params["type"],
 		Name:  params["name"],
@@ -31,7 +31,7 @@ func UpdateMetric(w http.ResponseWriter, r *http.Request, c *BaseController, par
 	}
 }
 
-func GetMetric(w http.ResponseWriter, r *http.Request, c *BaseController, params map[string]string) {
+func GetMetric(w http.ResponseWriter, c *BaseController, params map[string]string) {
 	val, err := c.stor.Get(params["type"], params["name"])
 	if err == nil {
 		w.Write([]byte(val))
@@ -44,7 +44,7 @@ func GetMetric(w http.ResponseWriter, r *http.Request, c *BaseController, params
 	}
 }
 
-func GetAllMetrics(w http.ResponseWriter, r *http.Request, c *BaseController) {
+func GetAllMetrics(w http.ResponseWriter, c *BaseController) {
 	data := c.stor.GetAll()
 	tmpl := template.Must(template.ParseFiles("web/template/all_metrics.html"))
 	tmpl.Execute(w, data) // todo: handle error

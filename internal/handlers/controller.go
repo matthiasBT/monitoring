@@ -25,16 +25,16 @@ func (c *BaseController) Route() *chi.Mux {
 
 func (c *BaseController) updateMetric(w http.ResponseWriter, r *http.Request) {
 	params := extractParams(r, "type", "name", "value")
-	UpdateMetric(w, r, c, params)
+	UpdateMetric(w, c, params)
 }
 
 func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
 	params := extractParams(r, "type", "name")
-	GetMetric(w, r, c, params)
+	GetMetric(w, c, params)
 }
 
 func (c *BaseController) getAllMetrics(w http.ResponseWriter, r *http.Request) {
-	GetAllMetrics(w, r, c)
+	GetAllMetrics(w, c)
 }
 
 func extractParams(r *http.Request, names ...string) map[string]string {
