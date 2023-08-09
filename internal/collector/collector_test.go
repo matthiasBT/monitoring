@@ -4,11 +4,13 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/matthiasBT/monitoring/internal/adapters"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCollect(t *testing.T) {
 	c := Context{
+		Logger:       adapters.SetupLogger(),
 		PollCount:    12,
 		CurrSnapshot: nil,
 		PollTicker:   nil,
@@ -17,7 +19,8 @@ func TestCollect(t *testing.T) {
 		ServerAddr:   "",
 		UpdateURL:    "",
 	}
-	currentSnapshot(&c)
+	poller := Poller{Ctx: &c}
+	poller.currentSnapshot()
 	assert.NotContains(t, c.CurrSnapshot.Gauges, "PollCount")
 	assert.Equalf(t, map[string]int64{"PollCount": 12}, c.CurrSnapshot.Counters, "Counters don't match")
 	gauges := make([]string, 0, len(c.CurrSnapshot.Gauges))

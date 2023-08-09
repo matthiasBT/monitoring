@@ -4,10 +4,12 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/matthiasBT/monitoring/internal/adapters"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMemStorage_Add(t *testing.T) {
+	logger := adapters.SetupLogger()
 	tests := []struct {
 		name         string
 		update       []MetricUpdate
@@ -65,6 +67,7 @@ func TestMemStorage_Add(t *testing.T) {
 			storage := &MemStorage{
 				MetricsGauge:   make(map[string]float64),
 				MetricsCounter: make(map[string]int64),
+				Logger:         logger,
 			}
 			for _, upd := range tt.update {
 				storage.Add(upd)
@@ -150,26 +153,24 @@ func TestMetricUpdate_Validate(t *testing.T) {
 }
 
 func TestMemStorage_Get(t *testing.T) {
-	type fields struct {
-		MetricsGauge   map[string]float64
-		MetricsCounter map[string]int64
-	}
+	logger := adapters.SetupLogger()
 	type args struct {
 		mType string
 		name  string
 	}
 	tests := []struct {
 		name    string
-		fields  fields
+		fields  MemStorage
 		args    args
 		want    string
 		wantErr error
 	}{
 		{
 			name: "get existing gauge",
-			fields: fields{
+			fields: MemStorage{
 				MetricsGauge:   map[string]float64{"Gauge1": 0.123},
 				MetricsCounter: map[string]int64{},
+				Logger:         logger,
 			},
 			args: args{
 				mType: "gauge",
@@ -180,9 +181,10 @@ func TestMemStorage_Get(t *testing.T) {
 		},
 		{
 			name: "get non-existent gauge",
-			fields: fields{
+			fields: MemStorage{
 				MetricsGauge:   map[string]float64{"Gauge1": 0.123},
 				MetricsCounter: map[string]int64{},
+				Logger:         logger,
 			},
 			args: args{
 				mType: "gauge",
@@ -193,9 +195,10 @@ func TestMemStorage_Get(t *testing.T) {
 		},
 		{
 			name: "get existing counter",
-			fields: fields{
+			fields: MemStorage{
 				MetricsGauge:   map[string]float64{},
 				MetricsCounter: map[string]int64{"Counter1": 56},
+				Logger:         logger,
 			},
 			args: args{
 				mType: "counter",
@@ -206,9 +209,10 @@ func TestMemStorage_Get(t *testing.T) {
 		},
 		{
 			name: "get non-existent counter",
-			fields: fields{
+			fields: MemStorage{
 				MetricsGauge:   map[string]float64{},
 				MetricsCounter: map[string]int64{"Counter1": 56},
+				Logger:         logger,
 			},
 			args: args{
 				mType: "counter",
@@ -219,9 +223,10 @@ func TestMemStorage_Get(t *testing.T) {
 		},
 		{
 			name: "get same name metric",
-			fields: fields{
+			fields: MemStorage{
 				MetricsGauge:   map[string]float64{"MemoryAlloc": 45.123},
 				MetricsCounter: map[string]int64{"MemoryAlloc": 56},
+				Logger:         logger,
 			},
 			args: args{
 				mType: "counter",
@@ -232,9 +237,10 @@ func TestMemStorage_Get(t *testing.T) {
 		},
 		{
 			name: "get metric with incorrect type",
-			fields: fields{
+			fields: MemStorage{
 				MetricsGauge:   map[string]float64{"SomeGauge": 45.123},
 				MetricsCounter: map[string]int64{"SomeCounter": 56},
+				Logger:         logger,
 			},
 			args: args{
 				mType: "hist",
@@ -249,6 +255,7 @@ func TestMemStorage_Get(t *testing.T) {
 			storage := &MemStorage{
 				MetricsGauge:   tt.fields.MetricsGauge,
 				MetricsCounter: tt.fields.MetricsCounter,
+				Logger:         tt.fields.Logger,
 			}
 			got, err := storage.Get(tt.args.mType, tt.args.name)
 			if !errors.Is(err, tt.wantErr) {
@@ -261,44 +268,45 @@ func TestMemStorage_Get(t *testing.T) {
 }
 
 func TestMemStorage_GetAll(t *testing.T) {
-	type fields struct {
-		MetricsGauge   map[string]float64
-		MetricsCounter map[string]int64
-	}
+	logger := adapters.SetupLogger()
 	tests := []struct {
 		name   string
-		fields fields
+		fields MemStorage
 		want   map[string]string
 	}{
 		{
 			name: "empty map",
-			fields: fields{
+			fields: MemStorage{
 				MetricsGauge:   make(map[string]float64),
 				MetricsCounter: make(map[string]int64),
+				Logger:         logger,
 			},
 			want: make(map[string]string),
 		},
 		{
 			name: "only counters map",
-			fields: fields{
+			fields: MemStorage{
 				MetricsGauge:   make(map[string]float64),
 				MetricsCounter: map[string]int64{"Counter1": 1, "Counter2": 2},
+				Logger:         logger,
 			},
 			want: map[string]string{"Counter1": "1", "Counter2": "2"},
 		},
 		{
 			name: "only gauges map",
-			fields: fields{
+			fields: MemStorage{
 				MetricsGauge:   map[string]float64{"Gauge1": 1.234, "Gauge2": 2.345},
 				MetricsCounter: make(map[string]int64),
+				Logger:         logger,
 			},
 			want: map[string]string{"Gauge1": "1.234", "Gauge2": "2.345"},
 		},
 		{
 			name: "both metric types map",
-			fields: fields{
+			fields: MemStorage{
 				MetricsGauge:   map[string]float64{"Gauge1": 1.234, "Gauge2": 2.345},
 				MetricsCounter: map[string]int64{"Counter1": 1, "Counter2": 2},
+				Logger:         logger,
 			},
 			want: map[string]string{"Gauge1": "1.234", "Gauge2": "2.345", "Counter1": "1", "Counter2": "2"},
 		},
@@ -308,6 +316,7 @@ func TestMemStorage_GetAll(t *testing.T) {
 			storage := &MemStorage{
 				MetricsGauge:   tt.fields.MetricsGauge,
 				MetricsCounter: tt.fields.MetricsCounter,
+				Logger:         logger,
 			}
 			res := storage.GetAll()
 			assert.Equalf(t, tt.want, res, "Storage contents don't match. Expected: %v, got: %v", tt.want, res)

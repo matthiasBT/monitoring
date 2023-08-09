@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/matthiasBT/monitoring/internal/interfaces"
 )
 
 const (
@@ -53,43 +55,44 @@ type Storage interface {
 type MemStorage struct {
 	MetricsGauge   map[string]float64
 	MetricsCounter map[string]int64
+	Logger         interfaces.ILogger
 }
 
 func (storage *MemStorage) Add(update MetricUpdate) {
-	fmt.Printf("Updating metrics with %+v\n", update)
+	storage.Logger.Infof("Updating metrics with %+v\n", update)
 	switch update.Type {
 	case TypeGauge:
-		fmt.Printf("Old metric value: %f\n", storage.MetricsGauge[update.Name])
+		storage.Logger.Infof("Old metric value: %f\n", storage.MetricsGauge[update.Name])
 		val, _ := strconv.ParseFloat(update.Value, 64)
 		storage.MetricsGauge[update.Name] = val
-		fmt.Printf("New metric value: %f\n", storage.MetricsGauge[update.Name])
+		storage.Logger.Infof("New metric value: %f\n", storage.MetricsGauge[update.Name])
 	case TypeCounter:
-		fmt.Printf("Old metric value: %d\n", storage.MetricsCounter[update.Name])
+		storage.Logger.Infof("Old metric value: %d\n", storage.MetricsCounter[update.Name])
 		val, _ := strconv.ParseInt(update.Value, 10, 64)
 		storage.MetricsCounter[update.Name] += val
-		fmt.Printf("New metric value: %d\n", storage.MetricsCounter[update.Name])
+		storage.Logger.Infof("New metric value: %d\n", storage.MetricsCounter[update.Name])
 	}
 }
 
 func (storage *MemStorage) Get(mType string, name string) (string, error) {
-	fmt.Printf("Getting metric of type %s named %s\n", mType, name)
+	storage.Logger.Infof("Getting metric of type %s named %s\n", mType, name)
 	switch mType {
 	case TypeGauge:
 		if val, ok := storage.MetricsGauge[name]; ok {
 			res := strconv.FormatFloat(val, 'f', -1, 64)
 			return res, nil
 		}
-		fmt.Println("No such Gauge metric")
+		storage.Logger.Infoln("No such Gauge metric")
 		return "", ErrUnknownMetricName
 	case TypeCounter:
 		if val, ok := storage.MetricsCounter[name]; ok {
 			res := fmt.Sprintf("%d", val)
 			return res, nil
 		}
-		fmt.Println("No such Counter metric")
+		storage.Logger.Infoln("No such Counter metric")
 		return "", ErrUnknownMetricName
 	default:
-		fmt.Println("Invalid metric type")
+		storage.Logger.Infoln("Invalid metric type")
 		return "", ErrInvalidMetricType
 	}
 }

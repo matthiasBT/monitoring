@@ -5,10 +5,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/matthiasBT/monitoring/internal/adapters"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestInitServerConfig(t *testing.T) {
+	logger := adapters.SetupLogger()
 	tests := []struct {
 		name    string
 		cmdArgs []string
@@ -48,13 +50,14 @@ func TestInitServerConfig(t *testing.T) {
 			for name, val := range tt.envs {
 				t.Setenv(name, val)
 			}
-			got := InitServerConfig()
+			got := InitServerConfig(logger)
 			assert.Equal(t, *got, tt.want, "Server configuration is different")
 		})
 	}
 }
 
 func TestInitAgentConfig(t *testing.T) {
+	logger := adapters.SetupLogger()
 	tests := []struct {
 		name    string
 		cmdArgs []string
@@ -96,7 +99,7 @@ func TestInitAgentConfig(t *testing.T) {
 			for name, val := range tt.envs {
 				t.Setenv(name, val)
 			}
-			got := InitAgentConfig()
+			got := InitAgentConfig(logger)
 			assert.Equal(t, *got, tt.want, "Agent configuration is different")
 		})
 	}

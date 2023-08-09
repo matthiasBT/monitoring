@@ -6,11 +6,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/matthiasBT/monitoring/internal/adapters"
 	"github.com/matthiasBT/monitoring/internal/storage"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestUpdateMetric(t *testing.T) {
+	logger := adapters.SetupLogger()
 	type args struct {
 		params   map[string]string
 		wantCode int
@@ -55,7 +57,7 @@ func TestUpdateMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			controller := &BaseController{stor: tt.args.storage}
+			controller := &BaseController{stor: tt.args.storage, logger: logger}
 			w := httptest.NewRecorder()
 			UpdateMetric(w, controller, tt.args.params)
 			res := w.Result()
@@ -66,6 +68,7 @@ func TestUpdateMetric(t *testing.T) {
 }
 
 func TestGetMetric(t *testing.T) {
+	logger := adapters.SetupLogger()
 	type args struct {
 		params   map[string]string
 		wantCode int
@@ -125,7 +128,7 @@ func TestGetMetric(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			controller := &BaseController{stor: tt.args.storage}
+			controller := &BaseController{stor: tt.args.storage, logger: logger}
 			GetMetric(w, controller, tt.args.params)
 			res := w.Result()
 			defer res.Body.Close()
@@ -142,6 +145,7 @@ func emptyStorage() storage.Storage {
 	return &storage.MemStorage{
 		MetricsGauge:   make(map[string]float64),
 		MetricsCounter: make(map[string]int64),
+		Logger:         adapters.SetupLogger(),
 	}
 }
 
@@ -149,10 +153,12 @@ func nonEmptyStorage() storage.Storage {
 	return &storage.MemStorage{
 		MetricsGauge:   map[string]float64{"Gauge1": 1.23, "Gauge2": 1.49},
 		MetricsCounter: map[string]int64{"Counter1": 1, "Counter2": 2},
+		Logger:         adapters.SetupLogger(),
 	}
 }
 
 func TestGetAllMetrics(t *testing.T) {
+	logger := adapters.SetupLogger()
 	tests := []struct {
 		name     string
 		stor     storage.Storage
@@ -195,7 +201,7 @@ func TestGetAllMetrics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		w := httptest.NewRecorder()
-		controller := &BaseController{stor: tt.stor, templatePath: "../../web/template"}
+		controller := &BaseController{stor: tt.stor, templatePath: "../../web/template", logger: logger}
 		GetAllMetrics(w, controller, "all_metrics.html")
 		res := w.Result()
 		defer res.Body.Close()

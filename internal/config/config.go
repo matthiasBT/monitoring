@@ -2,9 +2,9 @@ package config
 
 import (
 	"flag"
-	"log"
 
 	"github.com/caarlos0/env/v9"
+	"github.com/matthiasBT/monitoring/internal/interfaces"
 )
 
 const (
@@ -26,11 +26,11 @@ type ServerConfig struct {
 	TemplatePath string
 }
 
-func InitAgentConfig() *AgentConfig {
+func InitAgentConfig(logger interfaces.ILogger) *AgentConfig {
 	conf := new(AgentConfig)
 	err := env.Parse(conf)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	addr := flag.String("a", AgentDefAddr, "Server address. Usage: -a=host:port")
 	reportInterval := flag.Uint(
@@ -50,11 +50,11 @@ func InitAgentConfig() *AgentConfig {
 	return conf
 }
 
-func InitServerConfig() *ServerConfig {
+func InitServerConfig(logger interfaces.ILogger) *ServerConfig {
 	conf := new(ServerConfig)
 	err := env.Parse(conf)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	conf.TemplatePath = templatePath
 	if conf.Addr != "" {

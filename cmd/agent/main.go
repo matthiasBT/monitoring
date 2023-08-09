@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/matthiasBT/monitoring/internal/adapters"
 	"github.com/matthiasBT/monitoring/internal/collector"
 	"github.com/matthiasBT/monitoring/internal/config"
 )
@@ -14,8 +15,10 @@ import (
 const updateURL = "/update"
 
 func main() {
-	conf := config.InitAgentConfig()
+	logger := adapters.SetupLogger()
+	conf := config.InitAgentConfig(logger)
 	ctx := collector.Context{
+		Logger:       logger,
 		PollCount:    0,
 		CurrSnapshot: nil,
 		PollTicker:   time.NewTicker(time.Duration(conf.PollInterval) * time.Second),
@@ -24,8 +27,10 @@ func main() {
 		ServerAddr:   conf.Addr,
 		UpdateURL:    updateURL,
 	}
-	go collector.Report(&ctx)
-	go collector.Poll(&ctx)
+	reporter := collector.Reporter{Ctx: &ctx}
+	go reporter.Report()
+	poller := collector.Poller{Ctx: &ctx}
+	go poller.Poll()
 	quitChannel := make(chan os.Signal, 1)
 	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
 	<-quitChannel

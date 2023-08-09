@@ -4,16 +4,18 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/matthiasBT/monitoring/internal/interfaces"
 	"github.com/matthiasBT/monitoring/internal/storage"
 )
 
 type BaseController struct {
+	logger       interfaces.ILogger
 	stor         storage.Storage
 	templatePath string
 }
 
-func NewBaseController(stor storage.Storage, templatePath string) *BaseController {
-	return &BaseController{stor: stor, templatePath: templatePath}
+func NewBaseController(logger interfaces.ILogger, stor storage.Storage, templatePath string) *BaseController {
+	return &BaseController{logger, stor, templatePath}
 }
 
 func (c *BaseController) Route() *chi.Mux {
