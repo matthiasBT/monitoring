@@ -8,11 +8,12 @@ import (
 )
 
 type BaseController struct {
-	stor storage.Storage
+	stor         storage.Storage
+	templatePath string
 }
 
-func NewBaseController(stor storage.Storage) *BaseController {
-	return &BaseController{stor: stor}
+func NewBaseController(stor storage.Storage, templatePath string) *BaseController {
+	return &BaseController{stor: stor, templatePath: templatePath}
 }
 
 func (c *BaseController) Route() *chi.Mux {
@@ -34,7 +35,7 @@ func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *BaseController) getAllMetrics(w http.ResponseWriter, r *http.Request) {
-	GetAllMetrics(w, c)
+	GetAllMetrics(w, c, "all_metrics.html")
 }
 
 func extractParams(r *http.Request, names ...string) map[string]string {

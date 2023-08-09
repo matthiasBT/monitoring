@@ -12,6 +12,7 @@ const (
 	AgentDefAddr           = "localhost:8080"
 	AgentDefReportInterval = 10
 	AgentDefPollInterval   = 2
+	templatePath           = "web/template/"
 )
 
 type AgentConfig struct {
@@ -21,7 +22,8 @@ type AgentConfig struct {
 }
 
 type ServerConfig struct {
-	Addr string `env:"ADDRESS"`
+	Addr         string `env:"ADDRESS"`
+	TemplatePath string
 }
 
 func InitAgentConfig() *AgentConfig {
@@ -54,6 +56,7 @@ func InitServerConfig() *ServerConfig {
 	if err != nil {
 		log.Fatal(err)
 	}
+	conf.TemplatePath = templatePath
 	if conf.Addr != "" {
 		return conf
 	}

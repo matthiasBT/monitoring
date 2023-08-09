@@ -4,6 +4,7 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
+	"path/filepath"
 
 	"github.com/matthiasBT/monitoring/internal/storage"
 )
@@ -48,8 +49,9 @@ func GetMetric(w http.ResponseWriter, c *BaseController, params map[string]strin
 	w.Write([]byte(err.Error()))
 }
 
-func GetAllMetrics(w http.ResponseWriter, c *BaseController) {
+func GetAllMetrics(w http.ResponseWriter, c *BaseController, templateName string) {
 	data := c.stor.GetAll()
-	tmpl := template.Must(template.ParseFiles("web/template/all_metrics.html"))
+	path := filepath.Join(c.templatePath, templateName)
+	tmpl := template.Must(template.ParseFiles(path))
 	tmpl.Execute(w, data) // todo: handle error
 }

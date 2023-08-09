@@ -22,10 +22,13 @@ func setupServer() *chi.Mux {
 func main() {
 	conf := config.InitServerConfig()
 	r := setupServer()
-	controller := handlers.NewBaseController(&storage.MemStorage{
-		MetricsGauge:   make(map[string]float64),
-		MetricsCounter: make(map[string]int64),
-	})
+	controller := handlers.NewBaseController(
+		&storage.MemStorage{
+			MetricsGauge:   make(map[string]float64),
+			MetricsCounter: make(map[string]int64),
+		},
+		conf.TemplatePath,
+	)
 	r.Mount("/", controller.Route())
 	log.Fatal(http.ListenAndServe(conf.Addr, r))
 }

@@ -6,15 +6,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/labstack/echo/v4"
 	"github.com/matthiasBT/monitoring/internal/storage"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestUpdateMetric(t *testing.T) {
 	type args struct {
-		url      string
-		params   []string
+		params   map[string]string
 		wantCode int
 		storage  storage.Storage
 	}
@@ -25,8 +23,7 @@ func TestUpdateMetric(t *testing.T) {
 		{
 			name: "correct counter update",
 			args: args{
-				url:      "/update/counter/Counter1/25",
-				params:   []string{"counter", "Counter1", "25"},
+				params:   map[string]string{"type": "counter", "name": "Counter1", "value": "25"},
 				wantCode: http.StatusOK,
 				storage:  emptyStorage(),
 			},
@@ -34,8 +31,7 @@ func TestUpdateMetric(t *testing.T) {
 		{
 			name: "correct gauge update",
 			args: args{
-				url:      "/update/gauge/Gauge1/25.4",
-				params:   []string{"gauge", "Gauge1", "25.4"},
+				params:   map[string]string{"type": "gauge", "name": "Gauge1", "value": "25.4"},
 				wantCode: http.StatusOK,
 				storage:  emptyStorage(),
 			},
@@ -43,8 +39,7 @@ func TestUpdateMetric(t *testing.T) {
 		{
 			name: "missing metric name",
 			args: args{
-				url:      "/update/counter//4",
-				params:   []string{"counter", "", "4"},
+				params:   map[string]string{"type": "counter", "name": "", "value": "4"},
 				wantCode: http.StatusNotFound,
 				storage:  emptyStorage(),
 			},
@@ -52,8 +47,7 @@ func TestUpdateMetric(t *testing.T) {
 		{
 			name: "invalid metric type",
 			args: args{
-				url:      "/update/hist/Hist1/4.879",
-				params:   []string{"hist", "Hist1", "4.879"},
+				params:   map[string]string{"type": "hist", "name": "Hist1", "value": "4.879"},
 				wantCode: http.StatusBadRequest,
 				storage:  emptyStorage(),
 			},
@@ -61,14 +55,9 @@ func TestUpdateMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := echo.New()
-			r := httptest.NewRequest(http.MethodPost, tt.args.url, nil)
+			controller := &BaseController{stor: tt.args.storage}
 			w := httptest.NewRecorder()
-			c := e.NewContext(r, w)
-			c.SetPath("/update/:type/:name/:value")
-			c.SetParamNames("type", "name", "value")
-			c.SetParamValues(tt.args.params...)
-			UpdateMetric(c, tt.args.storage)
+			UpdateMetric(w, controller, tt.args.params)
 			res := w.Result()
 			defer res.Body.Close()
 			assert.Equal(t, tt.args.wantCode, res.StatusCode)
@@ -78,8 +67,7 @@ func TestUpdateMetric(t *testing.T) {
 
 func TestGetMetric(t *testing.T) {
 	type args struct {
-		url      string
-		params   []string
+		params   map[string]string
 		wantCode int
 		wantBody []byte
 		storage  storage.Storage
@@ -91,8 +79,7 @@ func TestGetMetric(t *testing.T) {
 		{
 			name: "get existing gauge",
 			args: args{
-				url:      "/value/gauge/Gauge1",
-				params:   []string{"gauge", "Gauge1"},
+				params:   map[string]string{"type": "gauge", "name": "Gauge1"},
 				wantCode: http.StatusOK,
 				wantBody: []byte("1.23"),
 				storage:  nonEmptyStorage(),
@@ -101,8 +88,7 @@ func TestGetMetric(t *testing.T) {
 		{
 			name: "get existing counter",
 			args: args{
-				url:      "/value/counter/Counter1",
-				params:   []string{"counter", "Counter1"},
+				params:   map[string]string{"type": "counter", "name": "Counter1"},
 				wantCode: http.StatusOK,
 				wantBody: []byte("1"),
 				storage:  nonEmptyStorage(),
@@ -111,8 +97,7 @@ func TestGetMetric(t *testing.T) {
 		{
 			name: "get non-existent gauge",
 			args: args{
-				url:      "/value/gauge/Gauge3",
-				params:   []string{"gauge", "Gauge3"},
+				params:   map[string]string{"type": "gauge", "name": "Gauge3"},
 				wantCode: http.StatusNotFound,
 				wantBody: nil,
 				storage:  nonEmptyStorage(),
@@ -121,8 +106,7 @@ func TestGetMetric(t *testing.T) {
 		{
 			name: "get non-existent counter",
 			args: args{
-				url:      "/value/counter/Counter3",
-				params:   []string{"counter", "Counter3"},
+				params:   map[string]string{"type": "counter", "name": "Counter3"},
 				wantCode: http.StatusNotFound,
 				wantBody: nil,
 				storage:  nonEmptyStorage(),
@@ -131,8 +115,7 @@ func TestGetMetric(t *testing.T) {
 		{
 			name: "get metric with invalid type",
 			args: args{
-				url:      "/value/hist/Gauge1",
-				params:   []string{"hist", "Gauge1"},
+				params:   map[string]string{"type": "hist", "name": "Hist1"},
 				wantCode: http.StatusNotFound,
 				wantBody: nil,
 				storage:  nonEmptyStorage(),
@@ -141,14 +124,9 @@ func TestGetMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := echo.New()
-			r := httptest.NewRequest(http.MethodGet, tt.args.url, nil)
 			w := httptest.NewRecorder()
-			c := e.NewContext(r, w)
-			c.SetPath("/value/:type/:name")
-			c.SetParamNames("type", "name")
-			c.SetParamValues(tt.args.params...)
-			GetMetric(c, tt.args.storage)
+			controller := &BaseController{stor: tt.args.storage}
+			GetMetric(w, controller, tt.args.params)
 			res := w.Result()
 			defer res.Body.Close()
 			body, _ := io.ReadAll(res.Body)
@@ -216,13 +194,9 @@ func TestGetAllMetrics(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		e := echo.New()
-		e.Renderer = GetRenderer("../../web/template/*.html")
-		r := httptest.NewRequest(http.MethodGet, "/", nil)
 		w := httptest.NewRecorder()
-		c := e.NewContext(r, w)
-		c.SetPath("/")
-		GetAllMetrics(c, tt.stor)
+		controller := &BaseController{stor: tt.stor, templatePath: "../../web/template"}
+		GetAllMetrics(w, controller, "all_metrics.html")
 		res := w.Result()
 		defer res.Body.Close()
 		body, _ := io.ReadAll(res.Body)
