@@ -53,5 +53,5 @@ func GetAllMetrics(w http.ResponseWriter, c *BaseController, templateName string
 	data := c.stor.GetAll()
 	path := filepath.Join(c.templatePath, templateName)
 	tmpl := template.Must(template.ParseFiles(path))
-	tmpl.Execute(w, data) // todo: handle error
+	c.logger.Fatal(tmpl.Execute(w, data))
 }
