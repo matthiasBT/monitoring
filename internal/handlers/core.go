@@ -20,7 +20,6 @@ func UpdateMetric(w http.ResponseWriter, c *BaseController, params map[string]st
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	w.Write([]byte(err.Error()))
 	switch {
 	case errors.Is(err, storage.ErrInvalidMetricType):
 		w.WriteHeader(http.StatusBadRequest)
@@ -28,20 +27,25 @@ func UpdateMetric(w http.ResponseWriter, c *BaseController, params map[string]st
 		w.WriteHeader(http.StatusNotFound)
 	case errors.Is(err, storage.ErrInvalidMetricVal):
 		w.WriteHeader(http.StatusBadRequest)
+	default:
+		w.WriteHeader(http.StatusInternalServerError)
 	}
+	w.Write([]byte(err.Error()))
 }
 
 func GetMetric(w http.ResponseWriter, c *BaseController, params map[string]string) {
 	val, err := c.stor.Get(params["type"], params["name"])
 	if err == nil {
-		w.Write([]byte(val))
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(val))
 		return
 	}
-	w.Write([]byte(err.Error()))
 	if errors.Is(err, storage.ErrUnknownMetricName) || errors.Is(err, storage.ErrInvalidMetricType) {
 		w.WriteHeader(http.StatusNotFound)
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
 	}
+	w.Write([]byte(err.Error()))
 }
 
 func GetAllMetrics(w http.ResponseWriter, c *BaseController) {
