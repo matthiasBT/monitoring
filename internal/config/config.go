@@ -47,6 +47,7 @@ func InitAgentConfig(logger interfaces.ILogger) *AgentConfig {
 	if conf.PollInterval == 0 {
 		conf.PollInterval = *pollInterval
 	}
+	fmt.Printf("Agent config: %v\n", conf) // todo: remove
 	return conf
 }
 
@@ -62,5 +63,6 @@ func InitServerConfig(logger interfaces.ILogger) *ServerConfig {
 	}
 	flag.StringVar(&conf.Addr, "a", "localhost:8080", "Server address. Usage: -a=host:port")
 	flag.Parse()
+	fmt.Printf("Server config: %v\n", conf) // todo: remove
 	return conf
 }
