@@ -7,21 +7,22 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/matthiasBT/monitoring/internal/adapters"
-	"github.com/matthiasBT/monitoring/internal/collector"
-	"github.com/matthiasBT/monitoring/internal/config"
+	"github.com/matthiasBT/monitoring/internal/agent/usecases/poll"
+	"github.com/matthiasBT/monitoring/internal/agent/usecases/report"
+	"github.com/matthiasBT/monitoring/internal/infra/config/agent"
+	"github.com/matthiasBT/monitoring/internal/infra/logging"
 )
 
 const updateURL = "/update"
 
 func main() {
-	logger := adapters.SetupLogger()
-	conf, err := config.InitAgentConfig()
+	logger := logging.SetupLogger()
+	conf, err := agent.InitAgentConfig()
 	if err != nil {
 		logger.Fatal(err)
 	}
 	done := make(chan bool)
-	reporterInfra := collector.ReporterInfra{
+	reporterInfra := report.ReporterInfra{
 		Logger:       logger,
 		CurrSnapshot: nil,
 		ReportTicker: time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
@@ -29,16 +30,16 @@ func main() {
 		ServerAddr:   conf.Addr,
 		UpdateURL:    updateURL,
 	}
-	pollerInfra := collector.PollerInfra{
+	pollerInfra := poll.PollerInfra{
 		Logger:       logger,
 		PollCount:    0,
 		CurrSnapshot: nil,
 		PollTicker:   time.NewTicker(time.Duration(conf.PollInterval) * time.Second),
 		Done:         done,
 	}
-	reporter := collector.Reporter{Infra: &reporterInfra}
+	reporter := report.Reporter{Infra: &reporterInfra}
 	go reporter.Report()
-	poller := collector.Poller{Infra: &pollerInfra}
+	poller := poll.Poller{Infra: &pollerInfra}
 	go poller.Poll()
 	quitChannel := make(chan os.Signal, 1)
 	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)

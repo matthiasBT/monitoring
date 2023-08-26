@@ -1,4 +1,4 @@
-package handlers
+package usecases
 
 import (
 	"io"
@@ -6,17 +6,18 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/matthiasBT/monitoring/internal/adapters"
-	"github.com/matthiasBT/monitoring/internal/storage"
+	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/server/adapters"
+	"github.com/matthiasBT/monitoring/internal/server/entities"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestUpdateMetric(t *testing.T) {
-	logger := adapters.SetupLogger()
+	logger := logging.SetupLogger()
 	type args struct {
 		params   map[string]string
 		wantCode int
-		storage  storage.Storage
+		storage  entities.Storage
 	}
 	tests := []struct {
 		name string
@@ -57,7 +58,7 @@ func TestUpdateMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			controller := &BaseController{stor: tt.args.storage, logger: logger}
+			controller := &BaseController{Stor: tt.args.storage, Logger: logger}
 			w := httptest.NewRecorder()
 			UpdateMetric(w, controller, tt.args.params)
 			res := w.Result()
@@ -68,12 +69,12 @@ func TestUpdateMetric(t *testing.T) {
 }
 
 func TestGetMetric(t *testing.T) {
-	logger := adapters.SetupLogger()
+	logger := logging.SetupLogger()
 	type args struct {
 		params   map[string]string
 		wantCode int
 		wantBody []byte
-		storage  storage.Storage
+		storage  entities.Storage
 	}
 	tests := []struct {
 		name string
@@ -128,7 +129,7 @@ func TestGetMetric(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			controller := &BaseController{stor: tt.args.storage, logger: logger}
+			controller := &BaseController{Stor: tt.args.storage, Logger: logger}
 			GetMetric(w, controller, tt.args.params)
 			res := w.Result()
 			defer res.Body.Close()
@@ -141,27 +142,27 @@ func TestGetMetric(t *testing.T) {
 	}
 }
 
-func emptyStorage() storage.Storage {
-	return &storage.MemStorage{
+func emptyStorage() entities.Storage {
+	return &adapters.MemStorage{
 		MetricsGauge:   make(map[string]float64),
 		MetricsCounter: make(map[string]int64),
-		Logger:         adapters.SetupLogger(),
+		Logger:         logging.SetupLogger(),
 	}
 }
 
-func nonEmptyStorage() storage.Storage {
-	return &storage.MemStorage{
+func nonEmptyStorage() entities.Storage {
+	return &adapters.MemStorage{
 		MetricsGauge:   map[string]float64{"Gauge1": 1.23, "Gauge2": 1.49},
 		MetricsCounter: map[string]int64{"Counter1": 1, "Counter2": 2},
-		Logger:         adapters.SetupLogger(),
+		Logger:         logging.SetupLogger(),
 	}
 }
 
 func TestGetAllMetrics(t *testing.T) {
-	logger := adapters.SetupLogger()
+	logger := logging.SetupLogger()
 	tests := []struct {
 		name     string
-		stor     storage.Storage
+		stor     entities.Storage
 		wantBody []byte
 		wantErr  error
 		wantCode int
@@ -201,7 +202,7 @@ func TestGetAllMetrics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		w := httptest.NewRecorder()
-		controller := &BaseController{stor: tt.stor, templatePath: "../../web/template", logger: logger}
+		controller := &BaseController{Stor: tt.stor, TemplatePath: "../../../web/template", Logger: logger}
 		GetAllMetrics(w, controller, "all_metrics.html")
 		res := w.Result()
 		defer res.Body.Close()

@@ -1,20 +1,22 @@
-package handlers
+package usecases
 
 import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/matthiasBT/monitoring/internal/interfaces"
-	"github.com/matthiasBT/monitoring/internal/storage"
+	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
+// TODO: can't split BaseController into 2 parts for moving 1 to adapters and 1 to usecases
+
 type BaseController struct {
-	logger       interfaces.ILogger
-	stor         storage.Storage
-	templatePath string
+	Logger       logging.ILogger
+	Stor         entities.Storage
+	TemplatePath string
 }
 
-func NewBaseController(logger interfaces.ILogger, stor storage.Storage, templatePath string) *BaseController {
+func NewBaseController(logger logging.ILogger, stor entities.Storage, templatePath string) *BaseController {
 	return &BaseController{logger, stor, templatePath}
 }
 

@@ -4,10 +4,10 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/matthiasBT/monitoring/internal/adapters"
-	"github.com/matthiasBT/monitoring/internal/config"
-	"github.com/matthiasBT/monitoring/internal/handlers"
-	"github.com/matthiasBT/monitoring/internal/storage"
+	"github.com/matthiasBT/monitoring/internal/infra/config/server"
+	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/server/adapters"
+	"github.com/matthiasBT/monitoring/internal/server/usecases"
 )
 
 func setupServer() *chi.Mux {
@@ -17,14 +17,14 @@ func setupServer() *chi.Mux {
 
 func main() {
 	r := setupServer()
-	logger := adapters.SetupLogger()
-	conf, err := config.InitServerConfig()
+	logger := logging.SetupLogger()
+	conf, err := server.InitServerConfig()
 	if err != nil {
 		logger.Fatal(err)
 	}
-	controller := handlers.NewBaseController(
+	controller := usecases.NewBaseController(
 		logger,
-		&storage.MemStorage{
+		&adapters.MemStorage{
 			MetricsGauge:   make(map[string]float64),
 			MetricsCounter: make(map[string]int64),
 			Logger:         logger,

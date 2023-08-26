@@ -1,62 +1,63 @@
-package storage
+package adapters
 
 import (
 	"errors"
 	"testing"
 
-	"github.com/matthiasBT/monitoring/internal/adapters"
+	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/server/entities"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMemStorage_Add(t *testing.T) {
-	logger := adapters.SetupLogger()
+	logger := logging.SetupLogger()
 	tests := []struct {
 		name         string
-		update       []MetricUpdate
+		update       []entities.MetricUpdate
 		wantGauges   map[string]float64
 		wantCounters map[string]int64
 	}{
 		{
 			name:         "add single counter",
-			update:       []MetricUpdate{{TypeCounter, "Counter1", "1"}},
+			update:       []entities.MetricUpdate{{entities.TypeCounter, "Counter1", "1"}},
 			wantGauges:   map[string]float64{},
 			wantCounters: map[string]int64{"Counter1": 1},
 		},
 		{
 			name: "add multiple counters",
-			update: []MetricUpdate{
-				{TypeCounter, "Counter1", "1"},
-				{TypeCounter, "Counter2", "47"},
-				{TypeCounter, "Counter1", "12"},
-				{TypeCounter, "Counter2", "31"},
+			update: []entities.MetricUpdate{
+				{entities.TypeCounter, "Counter1", "1"},
+				{entities.TypeCounter, "Counter2", "47"},
+				{entities.TypeCounter, "Counter1", "12"},
+				{entities.TypeCounter, "Counter2", "31"},
 			},
 			wantGauges:   map[string]float64{},
 			wantCounters: map[string]int64{"Counter1": 13, "Counter2": 78},
 		},
 		{
 			name:         "add single gauge",
-			update:       []MetricUpdate{{TypeGauge, "Gauge1", "1.0"}},
+			update:       []entities.MetricUpdate{{entities.TypeGauge, "Gauge1", "1.0"}},
 			wantGauges:   map[string]float64{"Gauge1": 1.0},
 			wantCounters: map[string]int64{},
 		},
 		{
 			name: "add multiple gauges",
-			update: []MetricUpdate{
-				{TypeGauge, "Gauge1", "1.0"},
-				{TypeGauge, "Gauge2", "5.43"},
-				{TypeGauge, "Gauge1", "-33.11"},
-				{TypeGauge, "Gauge3", "0.67"},
+			update: []entities.MetricUpdate{
+				{entities.TypeGauge, "Gauge1", "1.0"},
+				{entities.TypeGauge, "Gauge2", "5.43"},
+				{entities.TypeGauge, "Gauge1", "-33.11"},
+				{entities.TypeGauge, "Gauge3", "0.67"},
 			},
 			wantGauges:   map[string]float64{"Gauge1": -33.11, "Gauge2": 5.43, "Gauge3": 0.67},
 			wantCounters: map[string]int64{},
 		},
 		{
 			name: "mix gauges and counters",
-			update: []MetricUpdate{
-				{TypeGauge, "Gauge1", "1.0"},
-				{TypeCounter, "Counter1", "5"},
-				{TypeGauge, "Gauge2", "-33.11"},
-				{TypeCounter, "Counter2", "22"},
+			update: []entities.MetricUpdate{
+				{entities.TypeGauge, "Gauge1", "1.0"},
+				{entities.TypeCounter, "Counter1", "5"},
+				{entities.TypeGauge, "Gauge2", "-33.11"},
+				{entities.TypeCounter, "Counter2", "22"},
 			},
 			wantGauges:   map[string]float64{"Gauge1": 1.0, "Gauge2": -33.11},
 			wantCounters: map[string]int64{"Counter1": 5, "Counter2": 22},
@@ -108,37 +109,37 @@ func TestMetricUpdate_Validate(t *testing.T) {
 		{
 			name:    "incorrect counter update with float",
 			fields:  fields{"counter", "Counter1", "123.4"},
-			wantErr: ErrInvalidMetricVal,
+			wantErr: entities.ErrInvalidMetricVal,
 		},
 		{
 			name:    "invalid metric type",
 			fields:  fields{"hist", "Hist1", "0.567"},
-			wantErr: ErrInvalidMetricType,
+			wantErr: entities.ErrInvalidMetricType,
 		},
 		{
 			name:    "missing metric name",
 			fields:  fields{"counter", "", "4"},
-			wantErr: ErrMissingMetricName,
+			wantErr: entities.ErrMissingMetricName,
 		},
 		{
 			name:    "missing metric name with only whitespace chars",
 			fields:  fields{"counter", "   \t\r\n\f   ", "4"},
-			wantErr: ErrMissingMetricName,
+			wantErr: entities.ErrMissingMetricName,
 		},
 		{
 			name:    "invalid counter value",
 			fields:  fields{"counter", "Counter1", "four"},
-			wantErr: ErrInvalidMetricVal,
+			wantErr: entities.ErrInvalidMetricVal,
 		},
 		{
 			name:    "invalid gauge value",
 			fields:  fields{"gauge", "Gauge1", "four-point-six"},
-			wantErr: ErrInvalidMetricVal,
+			wantErr: entities.ErrInvalidMetricVal,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := MetricUpdate{
+			m := entities.MetricUpdate{
 				Type:  tt.fields.Type,
 				Name:  tt.fields.Name,
 				Value: tt.fields.Value,
@@ -153,7 +154,7 @@ func TestMetricUpdate_Validate(t *testing.T) {
 }
 
 func TestMemStorage_Get(t *testing.T) {
-	logger := adapters.SetupLogger()
+	logger := logging.SetupLogger()
 	type args struct {
 		mType string
 		name  string
@@ -191,7 +192,7 @@ func TestMemStorage_Get(t *testing.T) {
 				name:  "GaugeX",
 			},
 			want:    "",
-			wantErr: ErrUnknownMetricName,
+			wantErr: entities.ErrUnknownMetricName,
 		},
 		{
 			name: "get existing counter",
@@ -219,7 +220,7 @@ func TestMemStorage_Get(t *testing.T) {
 				name:  "CounterX",
 			},
 			want:    "",
-			wantErr: ErrUnknownMetricName,
+			wantErr: entities.ErrUnknownMetricName,
 		},
 		{
 			name: "get same name metric",
@@ -247,7 +248,7 @@ func TestMemStorage_Get(t *testing.T) {
 				name:  "SomeGauge",
 			},
 			want:    "",
-			wantErr: ErrInvalidMetricType,
+			wantErr: entities.ErrInvalidMetricType,
 		},
 	}
 	for _, tt := range tests {
@@ -268,7 +269,7 @@ func TestMemStorage_Get(t *testing.T) {
 }
 
 func TestMemStorage_GetAll(t *testing.T) {
-	logger := adapters.SetupLogger()
+	logger := logging.SetupLogger()
 	tests := []struct {
 		name   string
 		fields MemStorage
