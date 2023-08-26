@@ -9,17 +9,14 @@ import (
 )
 
 func TestCollect(t *testing.T) {
-	c := Context{
+	c := PollerInfra{
 		Logger:       adapters.SetupLogger(),
 		PollCount:    12,
 		CurrSnapshot: nil,
 		PollTicker:   nil,
-		ReportTicker: nil,
 		Done:         nil,
-		ServerAddr:   "",
-		UpdateURL:    "",
 	}
-	poller := Poller{Ctx: &c}
+	poller := Poller{Infra: &c}
 	poller.currentSnapshot()
 	assert.NotContains(t, c.CurrSnapshot.Gauges, "PollCount")
 	assert.Equalf(t, map[string]int64{"PollCount": 12}, c.CurrSnapshot.Counters, "Counters don't match")
