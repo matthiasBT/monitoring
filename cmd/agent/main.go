@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/matthiasBT/monitoring/internal/agent/entities"
 	"github.com/matthiasBT/monitoring/internal/agent/usecases/poll"
 	"github.com/matthiasBT/monitoring/internal/agent/usecases/report"
 	"github.com/matthiasBT/monitoring/internal/infra/config/agent"
@@ -22,20 +23,21 @@ func main() {
 		logger.Fatal(err)
 	}
 	done := make(chan bool)
+	dataExchange := entities.SnapshotWrapper{CurrSnapshot: nil}
 	reporterInfra := report.ReporterInfra{
 		Logger:       logger,
-		CurrSnapshot: nil,
+		Data:         &dataExchange,
 		ReportTicker: time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
 		Done:         done,
 		ServerAddr:   conf.Addr,
 		UpdateURL:    updateURL,
 	}
 	pollerInfra := poll.PollerInfra{
-		Logger:       logger,
-		PollCount:    0,
-		CurrSnapshot: nil,
-		PollTicker:   time.NewTicker(time.Duration(conf.PollInterval) * time.Second),
-		Done:         done,
+		Logger:     logger,
+		PollCount:  0,
+		Data:       &dataExchange,
+		PollTicker: time.NewTicker(time.Duration(conf.PollInterval) * time.Second),
+		Done:       done,
 	}
 	reporter := report.Reporter{Infra: &reporterInfra}
 	go reporter.Report()

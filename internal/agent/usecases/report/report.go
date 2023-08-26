@@ -14,7 +14,7 @@ import (
 
 type ReporterInfra struct {
 	Logger       logging.ILogger
-	CurrSnapshot *entities.Snapshot
+	Data         *entities.SnapshotWrapper
 	ReportTicker *time.Ticker
 	Done         chan bool
 	ServerAddr   string
@@ -39,12 +39,12 @@ func (r *Reporter) Report() {
 }
 
 func (r *Reporter) report() {
-	if r.Infra.CurrSnapshot == nil {
+	if r.Infra.Data.CurrSnapshot == nil {
 		r.Infra.Logger.Infoln("Data for report is not ready yet")
 		return
 	}
 	// saving the address of the current snapshot, so it doesn't get overwritten
-	snapshot := r.Infra.CurrSnapshot
+	snapshot := r.Infra.Data.CurrSnapshot
 	r.Infra.Logger.Infof("Reporting snapshot, memory address: %v\n", &snapshot)
 	for name, val := range snapshot.Gauges {
 		path := buildGaugePath(r.Infra.UpdateURL, name, val)

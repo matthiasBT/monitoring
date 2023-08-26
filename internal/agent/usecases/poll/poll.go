@@ -10,11 +10,11 @@ import (
 )
 
 type PollerInfra struct {
-	Logger       logging.ILogger
-	PollCount    int64
-	CurrSnapshot *entities.Snapshot
-	PollTicker   *time.Ticker
-	Done         chan bool
+	Logger     logging.ILogger
+	PollCount  int64
+	Data       *entities.SnapshotWrapper
+	PollTicker *time.Ticker
+	Done       chan bool
 }
 
 type Poller struct {
@@ -38,7 +38,7 @@ func (p *Poller) Poll() {
 func (p *Poller) currentSnapshot() {
 	var rtm runtime.MemStats
 	runtime.ReadMemStats(&rtm)
-	p.Infra.CurrSnapshot = &entities.Snapshot{
+	snapshot := &entities.Snapshot{
 		Gauges: map[string]float64{
 			"Alloc":         float64(rtm.Alloc),
 			"BuckHashSys":   float64(rtm.BuckHashSys),
@@ -73,5 +73,6 @@ func (p *Poller) currentSnapshot() {
 			"PollCount": p.Infra.PollCount,
 		},
 	}
+	p.Infra.Data.CurrSnapshot = snapshot
 	p.Infra.Logger.Infoln("Created another metrics snapshot")
 }
