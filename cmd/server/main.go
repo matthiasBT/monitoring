@@ -31,6 +31,7 @@ func main() {
 		},
 		conf.TemplatePath,
 	)
+	r.Use(logging.Middleware(logger))
 	r.Mount("/", controller.Route())
 	logger.Fatal(http.ListenAndServe(conf.Addr, r))
 }
