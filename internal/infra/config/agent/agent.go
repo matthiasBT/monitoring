@@ -12,14 +12,14 @@ const (
 	AgentDefPollInterval   = 2
 )
 
-type AgentConfig struct {
+type Config struct {
 	Addr           string `env:"ADDRESS"`
 	ReportInterval uint   `env:"REPORT_INTERVAL"`
 	PollInterval   uint   `env:"POLL_INTERVAL"`
 }
 
-func InitAgentConfig() (*AgentConfig, error) {
-	conf := new(AgentConfig)
+func InitConfig() (*Config, error) {
+	conf := new(Config)
 	err := env.Parse(conf)
 	if err != nil {
 		return nil, err

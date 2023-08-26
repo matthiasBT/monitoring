@@ -1,9 +1,13 @@
 package usecases
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
@@ -22,6 +26,8 @@ func NewBaseController(logger logging.ILogger, stor entities.Storage, templatePa
 
 func (c *BaseController) Route() *chi.Mux {
 	r := chi.NewRouter()
+	r.Post("/update/", c.updateMetric)
+	r.Post("/value/", c.getMetric)
 	r.Post("/update/{type}/{name}/{value}", c.updateMetric)
 	r.Get("/value/{type}/{name}", c.getMetric)
 	r.Get("/", c.getAllMetrics)
@@ -29,23 +35,60 @@ func (c *BaseController) Route() *chi.Mux {
 }
 
 func (c *BaseController) updateMetric(w http.ResponseWriter, r *http.Request) {
-	params := extractParams(r, "type", "name", "value")
-	UpdateMetric(w, c, params)
+	asJson := r.Header.Get("Content-Type") == "application/json"
+	if metrics := parseMetric(w, r, asJson, false); metrics != nil {
+		UpdateMetric(w, c, metrics)
+	}
 }
 
 func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
-	params := extractParams(r, "type", "name")
-	GetMetric(w, c, params)
+	asJson := r.Header.Get("Content-Type") == "application/json"
+	if metrics := parseMetric(w, r, asJson, true); metrics != nil {
+		GetMetric(w, c, asJson, metrics)
+	}
 }
 
 func (c *BaseController) getAllMetrics(w http.ResponseWriter, r *http.Request) {
 	GetAllMetrics(w, c, "all_metrics.html")
 }
 
-func extractParams(r *http.Request, names ...string) map[string]string {
-	var params = make(map[string]string)
-	for _, name := range names {
-		params[name] = chi.URLParam(r, name)
+func parseMetric(w http.ResponseWriter, r *http.Request, asjson bool, withoutValue bool) *common.Metrics {
+	var metrics common.Metrics
+	if asjson {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return nil
+		}
+		if err := json.Unmarshal(body, &metrics); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	} else {
+		metrics.ID = chi.URLParam(r, "name")
+		metrics.MType = chi.URLParam(r, "type")
+		if withoutValue {
+			return &metrics
+		}
+		val := chi.URLParam(r, "value")
+		switch metrics.MType {
+		case common.TypeGauge:
+			val, err := strconv.ParseFloat(val, 64)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return nil
+			}
+			metrics.Value = &val
+		case common.TypeCounter:
+			val, err := strconv.ParseInt(val, 10, 64)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return nil
+			}
+			metrics.Delta = &val
+		default:
+			w.WriteHeader(http.StatusBadRequest)
+			return nil
+		}
 	}
-	return params
+	return &metrics
 }

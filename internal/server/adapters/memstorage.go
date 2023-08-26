@@ -1,67 +1,63 @@
 package adapters
 
 import (
-	"fmt"
-	"strconv"
-
+	"github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
-	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
+// TODO: store everything in a single map with Metrics entity
+
 type MemStorage struct {
-	MetricsGauge   map[string]float64
-	MetricsCounter map[string]int64
-	Logger         logging.ILogger
+	Metrics map[string]*entities.Metrics
+	Logger  logging.ILogger
 }
 
-func (storage *MemStorage) Add(update entities.MetricUpdate) {
-	storage.Logger.Infof("Updating metrics with %+v\n", update)
-	switch update.Type {
-	case entities.TypeGauge:
-		storage.Logger.Infof("Old metric value: %f\n", storage.MetricsGauge[update.Name])
-		val, _ := strconv.ParseFloat(update.Value, 64)
-		storage.MetricsGauge[update.Name] = val
-		storage.Logger.Infof("New metric value: %f\n", storage.MetricsGauge[update.Name])
-	case entities.TypeCounter:
-		storage.Logger.Infof("Old metric value: %d\n", storage.MetricsCounter[update.Name])
-		val, _ := strconv.ParseInt(update.Value, 10, 64)
-		storage.MetricsCounter[update.Name] += val
-		storage.Logger.Infof("New metric value: %d\n", storage.MetricsCounter[update.Name])
+// TODO: add error
+
+func (storage *MemStorage) Add(update entities.Metrics) *entities.Metrics {
+	storage.Logger.Infof("Updating a metric %s %s\n", update.ID, update.MType)
+	metrics := storage.Metrics[update.ID]
+	if metrics == nil {
+		storage.Logger.Infoln("Creating a new metric")
+		storage.Metrics[update.ID] = &update
+		return &update
 	}
+	switch update.MType {
+	case entities.TypeGauge:
+		storage.Logger.Infof("Old metric value: %f\n", *metrics.Value)
+		metrics.Value = update.Value
+		storage.Logger.Infof("New metric value: %f\n", *metrics.Value)
+		return metrics
+	case entities.TypeCounter:
+		storage.Logger.Infof("Old metric value: %d\n", *metrics.Delta)
+		var delta = *metrics.Delta + *update.Delta
+		metrics.Delta = &delta
+		storage.Logger.Infof("New metric value: %d\n", *metrics.Delta)
+		return metrics
+	}
+	return nil // TODO: shouldn't happen, need to handle this
 }
 
-func (storage *MemStorage) Get(mType string, name string) (string, error) {
+func (storage *MemStorage) Get(mType string, name string) (*entities.Metrics, error) {
 	storage.Logger.Infof("Getting metric of type %s named %s\n", mType, name)
+	result, ok := storage.Metrics[name]
+	if !ok {
+		storage.Logger.Infoln("No such metric")
+		return nil, entities.ErrUnknownMetricName
+	}
 	switch mType {
 	case entities.TypeGauge:
-		if val, ok := storage.MetricsGauge[name]; ok {
-			res := strconv.FormatFloat(val, 'f', -1, 64)
-			return res, nil
-		}
-		storage.Logger.Infoln("No such Gauge metric")
-		return "", entities.ErrUnknownMetricName
+		fallthrough
 	case entities.TypeCounter:
-		if val, ok := storage.MetricsCounter[name]; ok {
-			res := fmt.Sprintf("%d", val)
-			return res, nil
+		if result.MType == mType {
+			return result, nil
 		}
-		storage.Logger.Infoln("No such Counter metric")
-		return "", entities.ErrUnknownMetricName
 	default:
-		storage.Logger.Infoln("Invalid metric type")
-		return "", entities.ErrInvalidMetricType
+		return nil, entities.ErrInvalidMetricType
 	}
+	return nil, entities.ErrUnknownMetricName
 }
 
-func (storage *MemStorage) GetAll() map[string]string {
-	res := make(map[string]string, len(storage.MetricsGauge)+len(storage.MetricsCounter))
-	for name := range storage.MetricsGauge {
-		valStr, _ := storage.Get(entities.TypeGauge, name)
-		res[name] = valStr
-	}
-	for name := range storage.MetricsCounter {
-		valStr, _ := storage.Get(entities.TypeCounter, name)
-		res[name] = valStr
-	}
-	return res
+func (storage *MemStorage) GetAll() map[string]*entities.Metrics {
+	return storage.Metrics
 }

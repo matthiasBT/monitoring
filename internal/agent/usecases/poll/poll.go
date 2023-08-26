@@ -10,6 +10,9 @@ import (
 )
 
 type PollerInfra struct {
+}
+
+type Poller struct {
 	Logger     logging.ILogger
 	PollCount  int64
 	Data       *entities.SnapshotWrapper
@@ -17,19 +20,15 @@ type PollerInfra struct {
 	Done       chan bool
 }
 
-type Poller struct {
-	Infra *PollerInfra
-}
-
 func (p *Poller) Poll() {
 	for {
 		select {
-		case <-p.Infra.Done:
-			p.Infra.Logger.Infoln("Stopping the Poll job")
+		case <-p.Done:
+			p.Logger.Infoln("Stopping the Poll job")
 			return
-		case tick := <-p.Infra.PollTicker.C:
-			p.Infra.PollCount += 1
-			p.Infra.Logger.Infof("Poll job #%v is ticking at %v\n", p.Infra.PollCount, tick)
+		case tick := <-p.PollTicker.C:
+			p.PollCount += 1
+			p.Logger.Infof("Poll job #%v is ticking at %v\n", p.PollCount, tick)
 			p.currentSnapshot()
 		}
 	}
@@ -70,9 +69,9 @@ func (p *Poller) currentSnapshot() {
 			"RandomValue":   rand.Float64(),
 		},
 		Counters: map[string]int64{
-			"PollCount": p.Infra.PollCount,
+			"PollCount": p.PollCount,
 		},
 	}
-	p.Infra.Data.CurrSnapshot = snapshot
-	p.Infra.Logger.Infoln("Created another metrics snapshot")
+	p.Data.CurrSnapshot = snapshot
+	p.Logger.Infoln("Created another metrics snapshot")
 }

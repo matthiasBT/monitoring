@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/matthiasBT/monitoring/internal/agent/adapters"
 	"github.com/matthiasBT/monitoring/internal/agent/entities"
 	"github.com/matthiasBT/monitoring/internal/agent/usecases/poll"
 	"github.com/matthiasBT/monitoring/internal/agent/usecases/report"
@@ -14,34 +15,36 @@ import (
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 )
 
-const updateURL = "/update"
+const updateURL = "/update/" // TODO: move to config?
 
 func main() {
 	logger := logging.SetupLogger()
-	conf, err := agent.InitAgentConfig()
+	conf, err := agent.InitConfig()
 	if err != nil {
 		logger.Fatal(err)
 	}
+	logger.Infof("Agent config: %v\n", *conf)
 	done := make(chan bool)
 	dataExchange := entities.SnapshotWrapper{CurrSnapshot: nil}
-	reporterInfra := report.ReporterInfra{
+	reporter := report.Reporter{
 		Logger:       logger,
 		Data:         &dataExchange,
 		ReportTicker: time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
 		Done:         done,
-		ServerAddr:   conf.Addr,
-		UpdateURL:    updateURL,
+		ReportAdapter: &adapters.HTTPReportAdapter{
+			Logger:     logger,
+			ServerAddr: conf.Addr,
+			UpdateURL:  updateURL,
+		},
 	}
-	pollerInfra := poll.PollerInfra{
+	poller := poll.Poller{
 		Logger:     logger,
 		PollCount:  0,
 		Data:       &dataExchange,
 		PollTicker: time.NewTicker(time.Duration(conf.PollInterval) * time.Second),
 		Done:       done,
 	}
-	reporter := report.Reporter{Infra: &reporterInfra}
 	go reporter.Report()
-	poller := poll.Poller{Infra: &pollerInfra}
 	go poller.Poll()
 	quitChannel := make(chan os.Signal, 1)
 	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)

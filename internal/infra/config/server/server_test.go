@@ -13,31 +13,31 @@ func TestInitServerConfig(t *testing.T) {
 		name    string
 		cmdArgs []string
 		envs    map[string]string
-		want    ServerConfig
+		want    Config
 	}{
 		{
 			name:    "read from command line",
 			cmdArgs: []string{"test", "-a", "0.0.0.0:8901"},
 			envs:    map[string]string{},
-			want:    ServerConfig{Addr: "0.0.0.0:8901", TemplatePath: templatePath},
+			want:    Config{Addr: "0.0.0.0:8901", TemplatePath: templatePath},
 		},
 		{
 			name:    "read from env",
 			cmdArgs: []string{"test"},
 			envs:    map[string]string{"ADDRESS": "localhost:8801"},
-			want:    ServerConfig{Addr: "localhost:8801", TemplatePath: templatePath},
+			want:    Config{Addr: "localhost:8801", TemplatePath: templatePath},
 		},
 		{
 			name:    "env gets higher priority",
 			cmdArgs: []string{"test", "-a", "localhost:8888"},
 			envs:    map[string]string{"ADDRESS": "0.0.0.0:8080"},
-			want:    ServerConfig{Addr: "0.0.0.0:8080", TemplatePath: templatePath},
+			want:    Config{Addr: "0.0.0.0:8080", TemplatePath: templatePath},
 		},
 		{
 			name:    "default value if no flag and no env",
 			cmdArgs: []string{"test"},
 			envs:    map[string]string{},
-			want:    ServerConfig{Addr: ServerDefAddr, TemplatePath: templatePath},
+			want:    Config{Addr: ServerDefAddr, TemplatePath: templatePath},
 		},
 	}
 	for _, tt := range tests {
@@ -48,7 +48,7 @@ func TestInitServerConfig(t *testing.T) {
 			for name, val := range tt.envs {
 				t.Setenv(name, val)
 			}
-			got, _ := InitServerConfig()
+			got, _ := InitConfig()
 			assert.Equal(t, *got, tt.want, "Server configuration is different")
 		})
 	}

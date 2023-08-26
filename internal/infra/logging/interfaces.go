@@ -5,4 +5,5 @@ type ILogger interface {
 	Infof(format string, args ...interface{})
 	Infoln(args ...interface{})
 	Fatal(args ...interface{})
+	Errorf(format string, args ...interface{})
 }

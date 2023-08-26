@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
+	"github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/server/adapters"
 	"github.com/matthiasBT/monitoring/internal/server/usecases"
@@ -18,16 +19,16 @@ func setupServer() *chi.Mux {
 func main() {
 	r := setupServer()
 	logger := logging.SetupLogger()
-	conf, err := server.InitServerConfig()
+	conf, err := server.InitConfig()
 	if err != nil {
 		logger.Fatal(err)
 	}
+	logger.Infof("Server config: %v\n", *conf)
 	controller := usecases.NewBaseController(
 		logger,
 		&adapters.MemStorage{
-			MetricsGauge:   make(map[string]float64),
-			MetricsCounter: make(map[string]int64),
-			Logger:         logger,
+			Metrics: make(map[string]*entities.Metrics),
+			Logger:  logger,
 		},
 		conf.TemplatePath,
 	)
