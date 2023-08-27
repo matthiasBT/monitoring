@@ -20,7 +20,7 @@ func (storage *MemStorage) Add(update entities.Metrics) (*entities.Metrics, erro
 
 	storage.Logger.Infof("Updating a metric %s %s\n", update.ID, update.MType)
 	metrics := storage.Metrics[update.ID]
-	if metrics == nil {
+	if metrics == nil || metrics.MType != update.MType {
 		storage.Logger.Infoln("Creating a new metric")
 		storage.Metrics[update.ID] = &update
 		storage.sendEvent()
@@ -46,9 +46,9 @@ func (storage *MemStorage) Get(query entities.Metrics) (*entities.Metrics, error
 	storage.Logger.Infof("Getting the metric %s %s\n", query.ID, query.MType)
 
 	result, ok := storage.Metrics[query.ID]
-	if !ok {
+	if !ok || result.MType != query.MType {
 		storage.Logger.Errorf("No such metric\n")
-		return nil, entities.ErrUnknownMetricName
+		return nil, entities.ErrUnknownMetric
 	}
 	return result, nil
 }

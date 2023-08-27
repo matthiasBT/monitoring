@@ -41,8 +41,6 @@ func parseMetric(r *http.Request, asJSON bool, withValue bool) *common.Metrics {
 				return nil
 			}
 			metrics.Delta = &val
-		default:
-			return nil
 		}
 	}
 	return &metrics

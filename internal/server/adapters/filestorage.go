@@ -21,7 +21,6 @@ type FileStorage struct {
 	StorageEvents <-chan struct{}
 	Lock          *sync.Mutex
 	StoreSync     bool
-	inited        bool
 }
 
 func (fs *FileStorage) Dump() {
@@ -32,12 +31,12 @@ func (fs *FileStorage) Dump() {
 			fs.save()
 			return
 		case tick := <-fs.Tick:
-			if !fs.StoreSync {
+			if !fs.StoreSync { // the "else" is unreachable here, just a matter of precaution
 				fs.Logger.Infof("Dump job is ticking at %v\n", tick)
 				fs.save()
 			}
 		case <-fs.StorageEvents:
-			if fs.StoreSync {
+			if fs.StoreSync { // have to empty the channel even if StoreSync is false
 				fs.Logger.Infoln("Received storage event")
 				fs.save()
 			}
@@ -78,13 +77,11 @@ func (fs *FileStorage) save() {
 			fs.Logger.Errorf("Failed to write a newline to the file %s\n", err.Error())
 			return
 		}
-		fs.Logger.Infof("Inited: %v. Dumped: %v\n", fs.inited, string(body))
 	}
 	fs.Logger.Infoln("Saving complete")
 }
 
 func (fs *FileStorage) InitStorage() map[string]*common.Metrics {
-	fs.inited = true
 	fs.Logger.Infoln("Starting restoring the storage data")
 	var result = make(map[string]*common.Metrics)
 
@@ -104,8 +101,6 @@ func (fs *FileStorage) InitStorage() map[string]*common.Metrics {
 			fs.Logger.Errorf("Failed to unmarshal data from file: %v\n", err.Error())
 			panic(err)
 		}
-		data, _ := json.Marshal(metrics)
-		fs.Logger.Infof("Loaded: %v\n", string(data))
 		result[metrics.ID] = &metrics
 	}
 	fs.Logger.Infoln("Success")

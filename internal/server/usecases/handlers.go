@@ -45,7 +45,7 @@ func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
 	result, err := GetMetric(c, metrics)
 	if err != nil {
 		var status int
-		if errors.Is(err, common.ErrUnknownMetricName) {
+		if errors.Is(err, common.ErrUnknownMetric) {
 			status = http.StatusNotFound
 		} else {
 			status = http.StatusInternalServerError

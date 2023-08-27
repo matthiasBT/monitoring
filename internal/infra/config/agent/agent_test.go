@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestInitAgentConfig(t *testing.T) {
+func TestInitConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		cmdArgs []string
@@ -19,26 +19,26 @@ func TestInitAgentConfig(t *testing.T) {
 			name:    "read from env",
 			cmdArgs: []string{"test"},
 			envs:    map[string]string{"ADDRESS": "0.0.0.0:8765", "REPORT_INTERVAL": "4", "POLL_INTERVAL": "1"},
-			want:    Config{Addr: "0.0.0.0:8765", ReportInterval: 4, PollInterval: 1},
+			want:    Config{Addr: "0.0.0.0:8765", ReportInterval: 4, PollInterval: 1, UpdateURL: updateURL},
 		},
 		{
 			name:    "read from command line",
 			cmdArgs: []string{"test", "-a", "0.0.0.0:8901", "-p", "7", "-r", "25"},
 			envs:    map[string]string{},
-			want:    Config{Addr: "0.0.0.0:8901", ReportInterval: 25, PollInterval: 7},
+			want:    Config{Addr: "0.0.0.0:8901", ReportInterval: 25, PollInterval: 7, UpdateURL: updateURL},
 		},
 		{
 			name:    "env gets higher priority",
 			cmdArgs: []string{"test", "-a", "0.0.0.0:8901", "-p", "7", "-r", "25"},
 			envs:    map[string]string{"ADDRESS": "0.0.0.0:8765", "REPORT_INTERVAL": "4", "POLL_INTERVAL": "1"},
-			want:    Config{Addr: "0.0.0.0:8765", ReportInterval: 4, PollInterval: 1},
+			want:    Config{Addr: "0.0.0.0:8765", ReportInterval: 4, PollInterval: 1, UpdateURL: updateURL},
 		},
 		{
 			name:    "default values if no flag and no env",
 			cmdArgs: []string{"test"},
 			envs:    map[string]string{},
 			want: Config{
-				Addr: DefAddr, ReportInterval: DefReportInterval, PollInterval: DefPollInterval,
+				Addr: DefAddr, ReportInterval: DefReportInterval, PollInterval: DefPollInterval, UpdateURL: updateURL,
 			},
 		},
 	}

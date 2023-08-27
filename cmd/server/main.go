@@ -65,6 +65,20 @@ func setupFileStorage(
 	}
 }
 
+func GracefulShutdown(srv *http.Server, done chan struct{}, logger logging.ILogger) {
+	quitChannel := make(chan os.Signal, 1)
+	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quitChannel
+	logger.Infof("Received signal: %v\n", sig)
+	done <- struct{}{}
+
+	time.Sleep(2 * time.Second)
+
+	if err := srv.Shutdown(context.Background()); err != nil {
+		log.Fatalf("Server shutdown failed: %v\n", err)
+	}
+}
+
 func main() {
 	logger := logging.SetupLogger()
 	conf, err := server.InitConfig()
@@ -85,7 +99,6 @@ func main() {
 
 	controller := usecases.NewBaseController(logger, storage, conf.TemplatePath)
 	r := setupServer(logger, controller)
-
 	srv := http.Server{Addr: conf.Addr, Handler: r}
 	go func() {
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
@@ -93,15 +106,5 @@ func main() {
 		}
 	}()
 
-	quitChannel := make(chan os.Signal, 1)
-	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
-	sig := <-quitChannel
-	logger.Infof("Received signal: %v\n", sig)
-	done <- struct{}{}
-
-	time.Sleep(2 * time.Second)
-
-	if err := srv.Shutdown(context.Background()); err != nil {
-		log.Fatalf("Server shutdown failed: %v\n", err)
-	}
+	GracefulShutdown(&srv, done, logger)
 }

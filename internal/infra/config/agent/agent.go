@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	updateURL         = "/update/"
 	DefAddr           = "localhost:8080"
 	DefReportInterval = 10
 	DefPollInterval   = 2
@@ -14,8 +15,9 @@ const (
 
 type Config struct {
 	Addr           string `env:"ADDRESS"`
-	ReportInterval uint   `env:"REPORT_INTERVAL"`
-	PollInterval   uint   `env:"POLL_INTERVAL"`
+	UpdateURL      string
+	ReportInterval uint `env:"REPORT_INTERVAL"`
+	PollInterval   uint `env:"POLL_INTERVAL"`
 }
 
 func InitConfig() (*Config, error) {
@@ -39,5 +41,6 @@ func InitConfig() (*Config, error) {
 	if conf.PollInterval == 0 {
 		conf.PollInterval = *pollInterval
 	}
+	conf.UpdateURL = updateURL
 	return conf, nil
 }

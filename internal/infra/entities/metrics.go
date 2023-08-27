@@ -16,7 +16,7 @@ var (
 	ErrInvalidMetricType = errors.New("invalid metric type")
 	ErrMissingMetricName = errors.New("missing metric name")
 	ErrInvalidMetricVal  = errors.New("invalid metric value")
-	ErrUnknownMetricName = errors.New("unknown metric name")
+	ErrUnknownMetric     = errors.New("unknown metric")
 )
 
 type Metrics struct {
@@ -32,11 +32,11 @@ func (m Metrics) Validate(withValue bool) error {
 	}
 	switch m.MType {
 	case TypeGauge:
-		if withValue && m.Value == nil {
+		if withValue && (m.Value == nil || m.Delta != nil) {
 			return ErrInvalidMetricVal
 		}
 	case TypeCounter:
-		if withValue && m.Delta == nil {
+		if withValue && (m.Delta == nil || m.Value != nil) {
 			return ErrInvalidMetricVal
 		}
 	default:

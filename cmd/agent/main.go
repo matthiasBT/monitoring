@@ -15,8 +15,6 @@ import (
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 )
 
-const updateURL = "/update/" // TODO: move to config?
-
 func main() {
 	logger := logging.SetupLogger()
 	conf, err := agent.InitConfig()
@@ -33,7 +31,7 @@ func main() {
 		SendAdapter: &adapters.HTTPReportAdapter{
 			Logger:     logger,
 			ServerAddr: conf.Addr,
-			UpdateURL:  updateURL,
+			UpdateURL:  conf.UpdateURL,
 		},
 	}
 	poller := poll.Poller{
