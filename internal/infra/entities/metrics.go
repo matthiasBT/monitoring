@@ -2,6 +2,8 @@ package entities
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -24,21 +26,33 @@ type Metrics struct {
 	Value *float64 `json:"value,omitempty"`
 }
 
-func (m Metrics) Validate() error {
+func (m Metrics) Validate(withValue bool) error {
 	if strings.TrimSpace(m.ID) == "" {
 		return ErrMissingMetricName
 	}
 	switch m.MType {
 	case TypeGauge:
-		if m.Value == nil {
+		if withValue && m.Value == nil {
 			return ErrInvalidMetricVal
 		}
 	case TypeCounter:
-		if m.Delta == nil {
+		if withValue && m.Delta == nil {
 			return ErrInvalidMetricVal
 		}
 	default:
 		return ErrInvalidMetricType
 	}
 	return nil
+}
+
+func (m Metrics) ValueAsString() string {
+	var val string
+	if m.MType == TypeGauge {
+		val = strconv.FormatFloat(*m.Value, 'f', -1, 64)
+	} else if m.MType == TypeCounter {
+		val = fmt.Sprintf("%d", *m.Delta)
+	} else {
+		return ""
+	}
+	return val
 }

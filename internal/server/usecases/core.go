@@ -1,111 +1,48 @@
 package usecases
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
+	"bytes"
 	"html/template"
-	"net/http"
 	"path/filepath"
-	"strconv"
 
 	"github.com/matthiasBT/monitoring/internal/infra/entities"
 )
 
-// TODO: move everything web-related to controller
-
-func UpdateMetric(w http.ResponseWriter, c *BaseController, metrics *entities.Metrics) *entities.Metrics {
-	err := metrics.Validate()
+func UpdateMetric(c *BaseController, metrics *entities.Metrics) (*entities.Metrics, error) {
+	result, err := c.Stor.Add(*metrics)
 	if err != nil {
-		switch {
-		case errors.Is(err, entities.ErrInvalidMetricType):
-			w.WriteHeader(http.StatusBadRequest)
-		case errors.Is(err, entities.ErrMissingMetricName):
-			w.WriteHeader(http.StatusNotFound)
-		case errors.Is(err, entities.ErrInvalidMetricVal):
-			w.WriteHeader(http.StatusBadRequest)
-		default:
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-		w.Write([]byte(err.Error()))
-		return nil
-	} else {
-		updated := c.Stor.Add(*metrics)
-		if err := writeMetric(w, true, updated); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return nil
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		return updated
+		return nil, err
 	}
+	return result, nil
 }
 
-func GetMetric(w http.ResponseWriter, c *BaseController, asJson bool, metrics *entities.Metrics) {
-	metrics, err := c.Stor.Get(metrics.MType, metrics.ID)
+func GetMetric(c *BaseController, metrics *entities.Metrics) (*entities.Metrics, error) {
+	result, err := c.Stor.Get(*metrics)
 	if err != nil {
-		if errors.Is(err, entities.ErrUnknownMetricName) || errors.Is(err, entities.ErrInvalidMetricType) {
-			w.WriteHeader(http.StatusNotFound)
-		} else {
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-		w.Write([]byte(err.Error()))
-		return
-	} else {
-		if asJson {
-			w.Header().Set("Content-Type", "application/json")
-		}
-		if err := writeMetric(w, asJson, metrics); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		return
+		return nil, err
 	}
+	return result, nil
 }
 
-// maybe this handler is no longer needed
-
-func GetAllMetrics(w http.ResponseWriter, c *BaseController, templateName string) {
-	metrics := c.Stor.GetAll()
-	var data = make(map[string]string, len(metrics))
-	for _, m := range metrics {
-		var val string
-		if m.MType == entities.TypeGauge {
-			val = strconv.FormatFloat(*m.Value, 'f', -1, 64)
-		} else {
-			val = fmt.Sprintf("%d", *m.Delta)
-		}
-		data[m.ID] = val
+func GetAllMetrics(c *BaseController, templateName string) (*bytes.Buffer, error) {
+	metrics, err := c.Stor.GetAll()
+	if err != nil {
+		return nil, err
 	}
+	var result bytes.Buffer
+	data := prepareTemplateData(metrics)
 	path := filepath.Join(c.TemplatePath, templateName)
 	tmpl := template.Must(template.ParseFiles(path))
-	err := tmpl.Execute(w, data)
-	if err != nil {
-		c.Logger.Fatal(err)
+	if err := tmpl.Execute(&result, data); err != nil {
+		return nil, err
 	}
+	return &result, nil
 }
 
-func writeMetric(w http.ResponseWriter, asJson bool, metrics *entities.Metrics) error {
-	var body []byte
-	if asJson {
-		val, err := json.Marshal(metrics)
-		if err != nil {
-			return err
-		}
-		body = val
-	} else {
-		body = []byte(valToStr(metrics))
+func prepareTemplateData(metrics map[string]*entities.Metrics) map[string]string {
+	var data = make(map[string]string, len(metrics))
+	for _, m := range metrics {
+		data[m.ID] = m.ValueAsString()
 	}
-	w.Write(body)
-	return nil
-}
-
-func valToStr(metrics *entities.Metrics) string {
-	var val string
-	if metrics.MType == entities.TypeGauge {
-		val = strconv.FormatFloat(*metrics.Value, 'f', -1, 64)
-	} else {
-		val = fmt.Sprintf("%d", *metrics.Delta)
-	}
-	return val
+	return data
 }
