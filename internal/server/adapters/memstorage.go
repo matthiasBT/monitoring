@@ -12,6 +12,7 @@ type MemStorage struct {
 }
 
 func (storage *MemStorage) Add(update entities.Metrics) (*entities.Metrics, error) {
+	// TODO: add mutex
 	storage.Logger.Infof("Updating a metric %s %s\n", update.ID, update.MType)
 	metrics := storage.Metrics[update.ID]
 	if metrics == nil {

@@ -48,6 +48,7 @@ func main() {
 	fileStorage := adapters.FileStorage{
 		Logger:        logger,
 		Storage:       storage,
+		Path:          conf.FileStoragePath,
 		Done:          done,
 		Tick:          tickerChan,
 		StorageEvents: storageEvents,
