@@ -48,3 +48,7 @@ func InitConfig() (*Config, error) {
 	conf.StoreInterval = &storeInterval
 	return conf, nil
 }
+
+func (c *Config) StoresSync() bool {
+	return *c.StoreInterval == 0
+}

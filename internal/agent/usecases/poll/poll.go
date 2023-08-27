@@ -13,11 +13,11 @@ type PollerInfra struct {
 }
 
 type Poller struct {
-	Logger     logging.ILogger
-	PollCount  int64
-	Data       *entities.SnapshotWrapper
-	PollTicker *time.Ticker
-	Done       chan bool
+	Logger    logging.ILogger
+	PollCount int64
+	Data      *entities.SnapshotWrapper
+	Ticker    *time.Ticker
+	Done      <-chan bool
 }
 
 func (p *Poller) Poll() {
@@ -26,7 +26,7 @@ func (p *Poller) Poll() {
 		case <-p.Done:
 			p.Logger.Infoln("Stopping the Poll job")
 			return
-		case tick := <-p.PollTicker.C:
+		case tick := <-p.Ticker.C:
 			p.PollCount += 1
 			p.Logger.Infof("Poll job #%v is ticking at %v\n", p.PollCount, tick)
 			p.currentSnapshot()

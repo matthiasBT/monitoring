@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/matthiasBT/monitoring/internal/infra/compression"
@@ -28,14 +29,38 @@ func main() {
 		logger.Fatal(err)
 	}
 	logger.Infof("Server config: %v\n", *conf)
-	controller := usecases.NewBaseController(
-		logger,
-		&adapters.MemStorage{
-			Metrics: make(map[string]*entities.Metrics),
-			Logger:  logger,
-		},
-		conf.TemplatePath,
-	)
+
+	storageEvents := make(chan struct{})
+	storage := &adapters.MemStorage{
+		Metrics: make(map[string]*entities.Metrics),
+		Logger:  logger,
+		Events:  storageEvents,
+	}
+
+	done := make(chan bool)
+	var tickerChan <-chan time.Time
+	if conf.StoresSync() {
+		tickerChan = make(chan time.Time) // will never be used
+	} else {
+		ticker := time.NewTicker(time.Duration(*conf.StoreInterval) * time.Second)
+		tickerChan = ticker.C
+	}
+	fileStorage := adapters.FileStorage{
+		Logger:        logger,
+		Storage:       storage,
+		Done:          done,
+		Tick:          tickerChan,
+		StorageEvents: storageEvents,
+	}
+	go fileStorage.Dump()
+	controller := usecases.NewBaseController(logger, storage, conf.TemplatePath)
+
 	r := setupServer(logger, controller)
 	logger.Fatal(http.ListenAndServe(conf.Addr, r))
+
+	// TODO: implement graceful shutdown
+	//quitChannel := make(chan os.Signal, 1)
+	//signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
+	//<-quitChannel
+	//fmt.Println("Stopping the server")
 }

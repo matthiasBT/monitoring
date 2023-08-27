@@ -24,25 +24,25 @@ func main() {
 		logger.Fatal(err)
 	}
 	logger.Infof("Agent config: %v\n", *conf)
-	done := make(chan bool)
+	done := make(<-chan bool)
 	dataExchange := entities.SnapshotWrapper{CurrSnapshot: nil}
 	reporter := report.Reporter{
-		Logger:       logger,
-		Data:         &dataExchange,
-		ReportTicker: time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
-		Done:         done,
-		ReportAdapter: &adapters.HTTPReportAdapter{
+		Logger: logger,
+		Data:   &dataExchange,
+		Ticker: time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
+		Done:   done,
+		SendAdapter: &adapters.HTTPReportAdapter{
 			Logger:     logger,
 			ServerAddr: conf.Addr,
 			UpdateURL:  updateURL,
 		},
 	}
 	poller := poll.Poller{
-		Logger:     logger,
-		PollCount:  0,
-		Data:       &dataExchange,
-		PollTicker: time.NewTicker(time.Duration(conf.PollInterval) * time.Second),
-		Done:       done,
+		Logger:    logger,
+		PollCount: 0,
+		Data:      &dataExchange,
+		Ticker:    time.NewTicker(time.Duration(conf.PollInterval) * time.Second),
+		Done:      done,
 	}
 	go reporter.Report()
 	go poller.Poll()

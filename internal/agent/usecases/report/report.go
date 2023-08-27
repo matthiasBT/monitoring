@@ -9,11 +9,11 @@ import (
 )
 
 type Reporter struct {
-	Logger        logging.ILogger
-	Data          *entities.SnapshotWrapper
-	ReportTicker  *time.Ticker
-	Done          chan bool
-	ReportAdapter entities.IReporter
+	Logger      logging.ILogger
+	Data        *entities.SnapshotWrapper
+	Ticker      *time.Ticker
+	Done        <-chan bool
+	SendAdapter entities.IReporter
 }
 
 func (r *Reporter) Report() {
@@ -22,7 +22,7 @@ func (r *Reporter) Report() {
 		case <-r.Done:
 			r.Logger.Infoln("Stopping the Report job")
 			return
-		case tick := <-r.ReportTicker.C:
+		case tick := <-r.Ticker.C:
 			r.Logger.Infof("Report job is ticking at %v\n", tick)
 			r.report()
 		}
@@ -44,7 +44,7 @@ func (r *Reporter) report() {
 			Delta: nil,
 			Value: &val,
 		}
-		r.callReportAdapter(metric)
+		r.send(metric)
 	}
 	for name, val := range snapshot.Counters {
 		metric := common.Metrics{
@@ -53,13 +53,13 @@ func (r *Reporter) report() {
 			Delta: &val,
 			Value: nil,
 		}
-		r.callReportAdapter(metric)
+		r.send(metric)
 	}
 	r.Logger.Infoln("All metrics have been reported")
 }
 
-func (r *Reporter) callReportAdapter(metric common.Metrics) {
-	if err := r.ReportAdapter.Report(&metric); err != nil {
+func (r *Reporter) send(metric common.Metrics) {
+	if err := r.SendAdapter.Report(&metric); err != nil {
 		r.Logger.Errorf("Failed to report a metric: %v. Error: %v\n", metric, err)
 	}
 }
