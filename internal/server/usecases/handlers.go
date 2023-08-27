@@ -62,5 +62,6 @@ func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
 
 func (c *BaseController) getAllMetrics(w http.ResponseWriter, r *http.Request) {
 	result, _ := GetAllMetrics(c, "all_metrics.html") // so far, there can't be any errors
+	w.Header().Set("Content-Type", "text/html")
 	w.Write(result.Bytes())
 }

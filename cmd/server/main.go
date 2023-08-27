@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/matthiasBT/monitoring/internal/infra/compression"
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	"github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
@@ -11,13 +12,16 @@ import (
 	"github.com/matthiasBT/monitoring/internal/server/usecases"
 )
 
-func setupServer() *chi.Mux {
+func setupServer(logger logging.ILogger, controller *usecases.BaseController) *chi.Mux {
 	r := chi.NewRouter()
+	r.Use(logging.Middleware(logger))
+	r.Use(compression.MiddlewareReader)
+	r.Use(compression.MiddlewareWriter)
+	r.Mount("/", controller.Route())
 	return r
 }
 
 func main() {
-	r := setupServer()
 	logger := logging.SetupLogger()
 	conf, err := server.InitConfig()
 	if err != nil {
@@ -32,7 +36,6 @@ func main() {
 		},
 		conf.TemplatePath,
 	)
-	r.Use(logging.Middleware(logger))
-	r.Mount("/", controller.Route())
+	r := setupServer(logger, controller)
 	logger.Fatal(http.ListenAndServe(conf.Addr, r))
 }
