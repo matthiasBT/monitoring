@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	AgentDefAddr           = "localhost:8080"
-	AgentDefReportInterval = 10
-	AgentDefPollInterval   = 2
+	DefAddr           = "localhost:8080"
+	DefReportInterval = 10
+	DefPollInterval   = 2
 )
 
 type Config struct {
@@ -24,11 +24,11 @@ func InitConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	addr := flag.String("a", AgentDefAddr, "Server address. Usage: -a=host:port")
+	addr := flag.String("a", DefAddr, "Server address. Usage: -a=host:port")
 	reportInterval := flag.Uint(
-		"r", AgentDefReportInterval, "How often to send metrics to the server, seconds",
+		"r", DefReportInterval, "How often to send metrics to the server, seconds",
 	)
-	pollInterval := flag.Uint("p", AgentDefPollInterval, "How often to query metrics, seconds")
+	pollInterval := flag.Uint("p", DefPollInterval, "How often to query metrics, seconds")
 	flag.Parse()
 	if conf.Addr == "" {
 		conf.Addr = *addr

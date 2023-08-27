@@ -37,7 +37,7 @@ func TestInitServerConfig(t *testing.T) {
 			name:    "default value if no flag and no env",
 			cmdArgs: []string{"test"},
 			envs:    map[string]string{},
-			want:    Config{Addr: ServerDefAddr, TemplatePath: templatePath},
+			want:    Config{Addr: DefAddr, TemplatePath: templatePath},
 		},
 	}
 	for _, tt := range tests {

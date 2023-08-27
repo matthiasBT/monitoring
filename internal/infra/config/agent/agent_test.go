@@ -38,7 +38,7 @@ func TestInitAgentConfig(t *testing.T) {
 			cmdArgs: []string{"test"},
 			envs:    map[string]string{},
 			want: Config{
-				Addr: AgentDefAddr, ReportInterval: AgentDefReportInterval, PollInterval: AgentDefPollInterval,
+				Addr: DefAddr, ReportInterval: DefReportInterval, PollInterval: DefPollInterval,
 			},
 		},
 	}
