@@ -28,24 +28,24 @@ func InitConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	var restore bool
-	var storeInterval uint
 	conf.TemplatePath = templatePath
+	flagAddr := flag.String("a", DefAddr, "Server address. Usage: -a=host:port")
+	flagStoragePath := flag.String("f", DefFileStoragePath, "Path to storage file")
+	flagRestore := flag.Bool("r", DefRestore, "Restore init state from the file (see -f flag)")
+	flagStoreInterval := flag.Uint("i", DefStoreInterval, "How often to store data in the file")
+	flag.Parse()
 	if conf.Addr == "" {
-		flag.StringVar(&conf.Addr, "a", "localhost:8080", "Server address. Usage: -a=host:port")
+		conf.Addr = *flagAddr
 	}
 	if conf.FileStoragePath == "" {
-		flag.StringVar(&conf.FileStoragePath, "f", DefFileStoragePath, "Path to storage file")
+		conf.FileStoragePath = *flagStoragePath
 	}
 	if conf.Restore == nil {
-		flag.BoolVar(&restore, "r", DefRestore, "Restore init state from the file (see -f flag)")
+		conf.Restore = flagRestore
 	}
 	if conf.StoreInterval == nil {
-		flag.UintVar(&storeInterval, "i", DefStoreInterval, "How often to store data in the file")
+		conf.StoreInterval = flagStoreInterval
 	}
-	flag.Parse()
-	conf.Restore = &restore
-	conf.StoreInterval = &storeInterval
 	return conf, nil
 }
 

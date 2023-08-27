@@ -23,7 +23,6 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	logger.Infof("Agent config: %v\n", *conf)
 	done := make(<-chan bool)
 	dataExchange := entities.SnapshotWrapper{CurrSnapshot: nil}
 	reporter := report.Reporter{

@@ -1,6 +1,8 @@
 package adapters
 
 import (
+	"sync"
+
 	"github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 )
@@ -9,10 +11,13 @@ type MemStorage struct {
 	Metrics map[string]*entities.Metrics
 	Logger  logging.ILogger
 	Events  chan<- struct{}
+	Lock    *sync.Mutex
 }
 
 func (storage *MemStorage) Add(update entities.Metrics) (*entities.Metrics, error) {
-	// TODO: add mutex
+	storage.Lock.Lock()
+	defer storage.Lock.Unlock()
+
 	storage.Logger.Infof("Updating a metric %s %s\n", update.ID, update.MType)
 	metrics := storage.Metrics[update.ID]
 	if metrics == nil {
@@ -38,7 +43,8 @@ func (storage *MemStorage) Add(update entities.Metrics) (*entities.Metrics, erro
 }
 
 func (storage *MemStorage) Get(query entities.Metrics) (*entities.Metrics, error) {
-	storage.Logger.Infof("Getting the metric %s %s%s\n", query.ID, query.MType)
+	storage.Logger.Infof("Getting the metric %s %s\n", query.ID, query.MType)
+
 	result, ok := storage.Metrics[query.ID]
 	if !ok {
 		storage.Logger.Errorf("No such metric\n")
@@ -49,6 +55,10 @@ func (storage *MemStorage) Get(query entities.Metrics) (*entities.Metrics, error
 
 func (storage *MemStorage) GetAll() (map[string]*entities.Metrics, error) {
 	return storage.Metrics, nil
+}
+
+func (storage *MemStorage) Init(state map[string]*entities.Metrics) {
+	storage.Metrics = state
 }
 
 func (storage *MemStorage) sendEvent() {
