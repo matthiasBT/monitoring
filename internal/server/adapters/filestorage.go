@@ -28,7 +28,7 @@ func NewFileKeeper(
 	logger logging.ILogger,
 	storage entities.Storage,
 	done chan struct{},
-) FileKeeper {
+) entities.Keeper {
 	var tickerChan <-chan time.Time
 	if conf.StoresSync() {
 		tickerChan = make(chan time.Time) // will never be used
@@ -36,7 +36,7 @@ func NewFileKeeper(
 		ticker := time.NewTicker(time.Duration(*conf.StoreInterval) * time.Second)
 		tickerChan = ticker.C
 	}
-	return FileKeeper{
+	return &FileKeeper{
 		Logger:    logger,
 		Storage:   storage,
 		Path:      conf.FileStoragePath,

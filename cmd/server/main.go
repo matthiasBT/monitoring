@@ -57,10 +57,9 @@ func main() {
 		storage.Init(state)
 	}
 	if conf.StoresSync() {
-		storage.SetKeeper(&fileKeeper)
+		storage.SetKeeper(fileKeeper)
 	} else {
 		go fileKeeper.FlushPeriodic()
-
 	}
 
 	controller := usecases.NewBaseController(logger, storage, conf.TemplatePath)
