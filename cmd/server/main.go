@@ -7,17 +7,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/matthiasBT/monitoring/internal/infra/compression"
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
-	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/server/adapters"
-	"github.com/matthiasBT/monitoring/internal/server/entities"
 	"github.com/matthiasBT/monitoring/internal/server/usecases"
 )
 
@@ -30,42 +27,7 @@ func setupServer(logger logging.ILogger, controller *usecases.BaseController) *c
 	return r
 }
 
-func setupStorage(logger logging.ILogger, events chan<- struct{}) entities.Storage {
-	return &adapters.MemStorage{
-		Metrics: make(map[string]*common.Metrics),
-		Logger:  logger,
-		Events:  events,
-		Lock:    &sync.Mutex{},
-	}
-}
-
-func setupFileStorage(
-	conf *server.Config,
-	logger logging.ILogger,
-	storage entities.Storage,
-	storageEvents <-chan struct{},
-	done chan struct{},
-) adapters.FileStorage {
-	var tickerChan <-chan time.Time
-	if conf.StoresSync() {
-		tickerChan = make(chan time.Time) // will never be used
-	} else {
-		ticker := time.NewTicker(time.Duration(*conf.StoreInterval) * time.Second)
-		tickerChan = ticker.C
-	}
-	return adapters.FileStorage{
-		Logger:        logger,
-		Storage:       storage,
-		Path:          conf.FileStoragePath,
-		Done:          done,
-		Tick:          tickerChan,
-		StorageEvents: storageEvents,
-		Lock:          &sync.Mutex{},
-		StoreSync:     conf.StoresSync(),
-	}
-}
-
-func GracefulShutdown(srv *http.Server, done chan struct{}, logger logging.ILogger) {
+func gracefulShutdown(srv *http.Server, done chan struct{}, logger logging.ILogger) {
 	quitChannel := make(chan os.Signal, 1)
 	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quitChannel
@@ -87,15 +49,15 @@ func main() {
 	}
 
 	storageEvents := make(chan struct{})
-	storage := setupStorage(logger, storageEvents)
+	storage := adapters.NewMemStorage(logger, storageEvents)
 
 	done := make(chan struct{}, 1)
-	fileStorage := setupFileStorage(conf, logger, storage, storageEvents, done)
+	fileStorage := adapters.NewFileStorage(conf, logger, storage, storageEvents, done)
 	if *conf.Restore {
 		state := fileStorage.InitStorage()
 		storage.Init(state)
 	}
-	go fileStorage.Dump()
+	go fileStorage.Flush()
 
 	controller := usecases.NewBaseController(logger, storage, conf.TemplatePath)
 	r := setupServer(logger, controller)
@@ -106,5 +68,5 @@ func main() {
 		}
 	}()
 
-	GracefulShutdown(&srv, done, logger)
+	gracefulShutdown(&srv, done, logger)
 }

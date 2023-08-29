@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
@@ -23,16 +24,42 @@ type FileStorage struct {
 	StoreSync     bool
 }
 
-func (fs *FileStorage) Dump() {
+func NewFileStorage(
+	conf *server.Config,
+	logger logging.ILogger,
+	storage entities.Storage,
+	storageEvents <-chan struct{},
+	done chan struct{},
+) FileStorage {
+	var tickerChan <-chan time.Time
+	if conf.StoresSync() {
+		tickerChan = make(chan time.Time) // will never be used
+	} else {
+		ticker := time.NewTicker(time.Duration(*conf.StoreInterval) * time.Second)
+		tickerChan = ticker.C
+	}
+	return FileStorage{
+		Logger:        logger,
+		Storage:       storage,
+		Path:          conf.FileStoragePath,
+		Done:          done,
+		Tick:          tickerChan,
+		StorageEvents: storageEvents,
+		Lock:          &sync.Mutex{},
+		StoreSync:     conf.StoresSync(),
+	}
+}
+
+func (fs *FileStorage) Flush() {
 	for {
 		select {
 		case <-fs.Done:
-			fs.Logger.Infoln("Stopping the Dump job")
+			fs.Logger.Infoln("Stopping the Flush job")
 			fs.save()
 			return
 		case tick := <-fs.Tick:
 			if !fs.StoreSync { // the "else" is unreachable here, just a matter of precaution
-				fs.Logger.Infof("Dump job is ticking at %v\n", tick)
+				fs.Logger.Infof("Flush job is ticking at %v\n", tick)
 				fs.save()
 			}
 		case <-fs.StorageEvents:
