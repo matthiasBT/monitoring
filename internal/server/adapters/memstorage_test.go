@@ -13,7 +13,6 @@ func TestMemStorage_Add(t *testing.T) {
 	stor := MemStorage{
 		Metrics: nil,
 		Logger:  logging.SetupLogger(),
-		Events:  nil,
 		Lock:    &sync.Mutex{},
 	}
 	tests := []struct {
@@ -129,7 +128,6 @@ func TestMemStorage_Add(t *testing.T) {
 	}
 	for _, tt := range tests {
 		stor.Metrics = tt.Metrics
-		stor.Events = make(chan<- struct{}, 1)
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := stor.Add(tt.update)
 			if (err != nil && tt.wantErr == nil) ||
@@ -152,7 +150,6 @@ func TestMemStorage_Get(t *testing.T) {
 	stor := MemStorage{
 		Metrics: nil,
 		Logger:  logging.SetupLogger(),
-		Events:  nil,
 		Lock:    &sync.Mutex{},
 	}
 	tests := []struct {
@@ -240,7 +237,6 @@ func TestMemStorage_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		stor.Metrics = tt.Metrics
-		stor.Events = make(chan<- struct{}, 1)
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := stor.Get(tt.query)
 			if (err != nil && tt.wantErr == nil) ||

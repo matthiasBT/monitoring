@@ -13,24 +13,22 @@ import (
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
-type FileStorage struct {
-	Logger        logging.ILogger
-	Storage       entities.Storage
-	Path          string
-	Done          <-chan struct{}
-	Tick          <-chan time.Time
-	StorageEvents <-chan struct{}
-	Lock          *sync.Mutex
-	StoreSync     bool
+type FileKeeper struct {
+	Logger    logging.ILogger
+	Storage   entities.Storage
+	Path      string
+	Done      <-chan struct{}
+	Tick      <-chan time.Time
+	Lock      *sync.Mutex
+	StoreSync bool
 }
 
-func NewFileStorage(
+func NewFileKeeper(
 	conf *server.Config,
 	logger logging.ILogger,
 	storage entities.Storage,
-	storageEvents <-chan struct{},
 	done chan struct{},
-) FileStorage {
+) FileKeeper {
 	var tickerChan <-chan time.Time
 	if conf.StoresSync() {
 		tickerChan = make(chan time.Time) // will never be used
@@ -38,40 +36,34 @@ func NewFileStorage(
 		ticker := time.NewTicker(time.Duration(*conf.StoreInterval) * time.Second)
 		tickerChan = ticker.C
 	}
-	return FileStorage{
-		Logger:        logger,
-		Storage:       storage,
-		Path:          conf.FileStoragePath,
-		Done:          done,
-		Tick:          tickerChan,
-		StorageEvents: storageEvents,
-		Lock:          &sync.Mutex{},
-		StoreSync:     conf.StoresSync(),
+	return FileKeeper{
+		Logger:    logger,
+		Storage:   storage,
+		Path:      conf.FileStoragePath,
+		Done:      done,
+		Tick:      tickerChan,
+		Lock:      &sync.Mutex{},
+		StoreSync: conf.StoresSync(),
 	}
 }
 
-func (fs *FileStorage) Flush() {
+func (fs *FileKeeper) FlushPeriodic() {
 	for {
 		select {
 		case <-fs.Done:
 			fs.Logger.Infoln("Stopping the Flush job")
-			fs.save()
+			fs.Flush()
 			return
 		case tick := <-fs.Tick:
 			if !fs.StoreSync { // the "else" is unreachable here, just a matter of precaution
 				fs.Logger.Infof("Flush job is ticking at %v\n", tick)
-				fs.save()
-			}
-		case <-fs.StorageEvents:
-			if fs.StoreSync { // have to empty the channel even if StoreSync is false
-				fs.Logger.Infoln("Received storage event")
-				fs.save()
+				fs.Flush()
 			}
 		}
 	}
 }
 
-func (fs *FileStorage) save() {
+func (fs *FileKeeper) Flush() {
 	fs.Logger.Infoln("Starting saving the storage data")
 
 	fs.Lock.Lock()
@@ -108,7 +100,7 @@ func (fs *FileStorage) save() {
 	fs.Logger.Infoln("Saving complete")
 }
 
-func (fs *FileStorage) InitStorage() map[string]*common.Metrics {
+func (fs *FileKeeper) Restore() map[string]*common.Metrics {
 	fs.Logger.Infoln("Starting restoring the storage data")
 	var result = make(map[string]*common.Metrics)
 

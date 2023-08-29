@@ -11,17 +11,21 @@ import (
 type MemStorage struct {
 	Metrics map[string]*common.Metrics
 	Logger  logging.ILogger
-	Events  chan<- struct{}
+	Keeper  entities.Keeper
 	Lock    *sync.Mutex
 }
 
-func NewMemStorage(logger logging.ILogger, events chan<- struct{}) entities.Storage {
+func NewMemStorage(logger logging.ILogger, keeper entities.Keeper) entities.Storage {
 	return &MemStorage{
 		Metrics: make(map[string]*common.Metrics),
 		Logger:  logger,
-		Events:  events,
+		Keeper:  keeper,
 		Lock:    &sync.Mutex{},
 	}
+}
+
+func (storage *MemStorage) SetKeeper(keeper entities.Keeper) {
+	storage.Keeper = keeper
 }
 
 func (storage *MemStorage) Add(update common.Metrics) (*common.Metrics, error) {
@@ -33,21 +37,21 @@ func (storage *MemStorage) Add(update common.Metrics) (*common.Metrics, error) {
 	if metrics == nil || metrics.MType != update.MType {
 		storage.Logger.Infoln("Creating a new metric")
 		storage.Metrics[update.ID] = &update
-		storage.sendEvent()
+		storage.flush()
 		return &update, nil
 	}
 	if update.MType == common.TypeGauge {
 		storage.Logger.Infof("Old metric value: %f\n", *metrics.Value)
 		metrics.Value = update.Value
 		storage.Logger.Infof("New metric value: %f\n", *metrics.Value)
-		storage.sendEvent()
+		storage.flush()
 		return metrics, nil
 	} else { // Counter
 		storage.Logger.Infof("Old metric value: %d\n", *metrics.Delta)
 		var delta = *metrics.Delta + *update.Delta
 		metrics.Delta = &delta
 		storage.Logger.Infof("New metric value: %d\n", *metrics.Delta)
-		storage.sendEvent()
+		storage.flush()
 		return metrics, nil
 	}
 }
@@ -71,6 +75,8 @@ func (storage *MemStorage) Init(state map[string]*common.Metrics) {
 	storage.Metrics = state
 }
 
-func (storage *MemStorage) sendEvent() {
-	storage.Events <- struct{}{}
+func (storage *MemStorage) flush() {
+	if storage.Keeper != nil {
+		storage.Keeper.Flush()
+	}
 }

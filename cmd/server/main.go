@@ -48,16 +48,20 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	storageEvents := make(chan struct{})
-	storage := adapters.NewMemStorage(logger, storageEvents)
+	storage := adapters.NewMemStorage(logger, nil)
 
 	done := make(chan struct{}, 1)
-	fileStorage := adapters.NewFileStorage(conf, logger, storage, storageEvents, done)
+	fileKeeper := adapters.NewFileKeeper(conf, logger, storage, done)
 	if *conf.Restore {
-		state := fileStorage.InitStorage()
+		state := fileKeeper.Restore()
 		storage.Init(state)
 	}
-	go fileStorage.Flush()
+	if conf.StoresSync() {
+		storage.SetKeeper(&fileKeeper)
+	} else {
+		go fileKeeper.FlushPeriodic()
+
+	}
 
 	controller := usecases.NewBaseController(logger, storage, conf.TemplatePath)
 	r := setupServer(logger, controller)
