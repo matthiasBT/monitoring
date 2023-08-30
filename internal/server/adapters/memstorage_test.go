@@ -10,10 +10,13 @@ import (
 )
 
 func TestMemStorage_Add(t *testing.T) {
-	stor := MemStorage{
+	st := State{
 		Metrics: nil,
-		Logger:  logging.SetupLogger(),
 		Lock:    &sync.Mutex{},
+	}
+	stor := MemStorage{
+		State:  st,
+		Logger: logging.SetupLogger(),
 	}
 	tests := []struct {
 		name        string
@@ -147,10 +150,13 @@ func TestMemStorage_Add(t *testing.T) {
 }
 
 func TestMemStorage_Get(t *testing.T) {
-	stor := MemStorage{
+	st := State{
 		Metrics: nil,
-		Logger:  logging.SetupLogger(),
 		Lock:    &sync.Mutex{},
+	}
+	stor := MemStorage{
+		State:  st,
+		Logger: logging.SetupLogger(),
 	}
 	tests := []struct {
 		name    string

@@ -6,21 +6,28 @@ import (
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
+	"golang.org/x/exp/maps"
 )
 
-type MemStorage struct {
+type State struct {
 	Metrics map[string]*common.Metrics
-	Logger  logging.ILogger
-	Keeper  entities.Keeper
 	Lock    *sync.Mutex
+}
+
+type MemStorage struct {
+	State
+	Logger logging.ILogger
+	Keeper entities.Keeper
 }
 
 func NewMemStorage(logger logging.ILogger, keeper entities.Keeper) entities.Storage {
 	return &MemStorage{
-		Metrics: make(map[string]*common.Metrics),
-		Logger:  logger,
-		Keeper:  keeper,
-		Lock:    &sync.Mutex{},
+		State: State{
+			Metrics: make(map[string]*common.Metrics),
+			Lock:    &sync.Mutex{},
+		},
+		Logger: logger,
+		Keeper: keeper,
 	}
 }
 
@@ -58,7 +65,6 @@ func (storage *MemStorage) Add(update common.Metrics) (*common.Metrics, error) {
 
 func (storage *MemStorage) Get(query common.Metrics) (*common.Metrics, error) {
 	storage.Logger.Infof("Getting the metric %s %s\n", query.ID, query.MType)
-
 	result, ok := storage.Metrics[query.ID]
 	if !ok || result.MType != query.MType {
 		storage.Logger.Errorf("No such metric\n")
@@ -71,12 +77,24 @@ func (storage *MemStorage) GetAll() (map[string]*common.Metrics, error) {
 	return storage.Metrics, nil
 }
 
-func (storage *MemStorage) Init(state map[string]*common.Metrics) {
-	storage.Metrics = state
+func (storage *MemStorage) Snapshot() ([]*common.Metrics, error) {
+	data := maps.Values(storage.Metrics)
+	return data, nil
+}
+
+func (storage *MemStorage) Init(data []*common.Metrics) {
+	storage.Logger.Infoln("Initializing the storage with new data. Old data will be lost")
+	result := make(map[string]*common.Metrics, len(data))
+	for _, metrics := range data {
+		result[metrics.ID] = metrics
+	}
+	storage.Metrics = result
+	storage.Logger.Infoln("Init finished successfully")
 }
 
 func (storage *MemStorage) flush() {
 	if storage.Keeper != nil {
-		storage.Keeper.Flush()
+		snapshot, _ := storage.Snapshot()
+		storage.Keeper.Flush(snapshot)
 	}
 }

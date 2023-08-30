@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/matthiasBT/monitoring/cmd/server/periodic"
 	"log"
 	"net/http"
 	"os"
@@ -51,7 +52,8 @@ func main() {
 
 	done := make(chan struct{}, 1)
 	if conf.Flushes() {
-		fileKeeper := adapters.NewFileKeeper(conf, logger, storage, done)
+		fileKeeper := adapters.NewFileKeeper(conf, logger, done)
+		flusher := periodic.NewFlusher(conf, logger, storage, fileKeeper, done)
 		if *conf.Restore {
 			state := fileKeeper.Restore()
 			storage.Init(state)
@@ -59,7 +61,7 @@ func main() {
 		if conf.FlushesSync() {
 			storage.SetKeeper(fileKeeper)
 		} else {
-			go fileKeeper.FlushPeriodic()
+			go flusher.Flush()
 		}
 	}
 
@@ -67,6 +69,7 @@ func main() {
 	r := setupServer(logger, controller)
 	srv := http.Server{Addr: conf.Addr, Handler: r}
 	go func() {
+		logger.Infof("Launching the server at %s\n", conf.Addr)
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal(err)
 		}

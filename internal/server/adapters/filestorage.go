@@ -3,110 +3,69 @@ package adapters
 import (
 	"bufio"
 	"encoding/json"
-	"os"
-	"sync"
-	"time"
-
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
+	"os"
+	"sync"
 )
 
 type FileKeeper struct {
-	Logger    logging.ILogger
-	Storage   entities.Storage
-	Path      string
-	Done      <-chan struct{}
-	Tick      <-chan time.Time
-	Lock      *sync.Mutex
-	StoreSync bool
+	Logger logging.ILogger
+	Path   string
+	Done   <-chan struct{}
+	Lock   *sync.Mutex
 }
 
-func NewFileKeeper(
-	conf *server.Config,
-	logger logging.ILogger,
-	storage entities.Storage,
-	done chan struct{},
-) entities.Keeper {
-	var tickerChan <-chan time.Time
-	if conf.FlushesSync() {
-		tickerChan = make(chan time.Time) // will never be used
-	} else {
-		ticker := time.NewTicker(time.Duration(*conf.StoreInterval) * time.Second)
-		tickerChan = ticker.C
-	}
+func NewFileKeeper(conf *server.Config, logger logging.ILogger, done chan struct{}) entities.Keeper {
 	return &FileKeeper{
-		Logger:    logger,
-		Storage:   storage,
-		Path:      conf.FileStoragePath,
-		Done:      done,
-		Tick:      tickerChan,
-		Lock:      &sync.Mutex{},
-		StoreSync: conf.FlushesSync(),
+		Logger: logger,
+		Path:   conf.FileStoragePath,
+		Done:   done,
+		Lock:   &sync.Mutex{},
 	}
 }
 
-func (fs *FileKeeper) FlushPeriodic() {
-	for {
-		select {
-		case <-fs.Done:
-			fs.Logger.Infoln("Stopping the Flush job")
-			fs.Flush()
-			return
-		case tick := <-fs.Tick:
-			if !fs.StoreSync { // the "else" is unreachable here, just a matter of precaution
-				fs.Logger.Infof("Flush job is ticking at %v\n", tick)
-				fs.Flush()
-			}
-		}
-	}
-}
-
-func (fs *FileKeeper) Flush() {
+func (fs *FileKeeper) Flush(storageSnapshot []*common.Metrics) error {
 	fs.Logger.Infoln("Starting saving the storage data")
 
 	fs.Lock.Lock()
 	defer fs.Lock.Unlock()
 
-	data, err := fs.Storage.GetAll()
-	if err != nil {
-		fs.Logger.Errorf("Failed to receive data from storage: %s\n", err.Error())
-		return
-	}
-
 	file, err := os.OpenFile(fs.Path, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		fs.Logger.Errorf("Failed to open storage file: %s\n", err.Error())
-		return
+		return err
 	}
 	defer file.Close()
 
-	for _, metrics := range data {
+	for _, metrics := range storageSnapshot {
 		body, err := json.Marshal(metrics)
 		if err != nil {
 			fs.Logger.Errorf("Failed to marshal a metric: %s, %s\n", metrics.ID, err.Error())
-			return
+			return err
 		}
 		if _, err := file.Write(body); err != nil {
 			fs.Logger.Errorf("Failed to write a metric to the file %s\n", err.Error())
-			return
+			return err
 		}
 		if _, err = file.WriteString("\n"); err != nil {
 			fs.Logger.Errorf("Failed to write a newline to the file %s\n", err.Error())
-			return
+			return err
 		}
 	}
 	fs.Logger.Infoln("Saving complete")
+	return nil
 }
 
-func (fs *FileKeeper) Restore() map[string]*common.Metrics {
-	fs.Logger.Infoln("Starting restoring the storage data")
-	var result = make(map[string]*common.Metrics)
+func (fs *FileKeeper) Restore() []*common.Metrics {
+	fs.Logger.Infoln("Restoring the storage data")
+	var result []*common.Metrics
 
 	file, err := os.OpenFile(fs.Path, os.O_CREATE|os.O_RDONLY, 0666)
 	if err != nil {
-		fs.Logger.Errorf("Can't init storage: %v\n", err.Error())
+		fs.Logger.Errorf("Failed to open storage file: %v\n", err.Error())
 		panic(err)
 	}
 	defer file.Close()
@@ -120,7 +79,7 @@ func (fs *FileKeeper) Restore() map[string]*common.Metrics {
 			fs.Logger.Errorf("Failed to unmarshal data from file: %v\n", err.Error())
 			panic(err)
 		}
-		result[metrics.ID] = &metrics
+		result = append(result, &metrics)
 	}
 	fs.Logger.Infoln("Success")
 	return result
