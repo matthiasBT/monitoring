@@ -73,6 +73,18 @@ func TestInitConfig(t *testing.T) {
 				TemplatePath:    templatePath,
 			},
 		},
+		{
+			name:    "empty storage path is allowed",
+			cmdArgs: []string{"test", "-f", ""},
+			envs:    make(map[string]string),
+			want: Config{
+				Addr:            DefAddr,
+				StoreInterval:   ptruint(DefStoreInterval),
+				FileStoragePath: "",
+				Restore:         ptrbool(DefRestore),
+				TemplatePath:    templatePath,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -88,7 +100,7 @@ func TestInitConfig(t *testing.T) {
 	}
 }
 
-func TestStoresSync(t *testing.T) {
+func TestFlushesSync(t *testing.T) {
 	tests := []struct {
 		name   string
 		config Config
@@ -119,7 +131,44 @@ func TestStoresSync(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.config.StoresSync()
+			got := tt.config.FlushesSync()
+			assert.Equal(t, got, tt.want)
+		})
+	}
+}
+
+func TestFlushes(t *testing.T) {
+	tests := []struct {
+		name   string
+		config Config
+		want   bool
+	}{
+		{
+			name: "flushes",
+			config: Config{
+				Addr:            DefAddr,
+				StoreInterval:   ptruint(DefStoreInterval),
+				FileStoragePath: "/foo/bar.json",
+				Restore:         ptrbool(DefRestore),
+				TemplatePath:    templatePath,
+			},
+			want: true,
+		},
+		{
+			name: "doesn't flush",
+			config: Config{
+				Addr:            DefAddr,
+				StoreInterval:   ptruint(DefStoreInterval),
+				FileStoragePath: "",
+				Restore:         ptrbool(DefRestore),
+				TemplatePath:    templatePath,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.config.Flushes()
 			assert.Equal(t, got, tt.want)
 		})
 	}

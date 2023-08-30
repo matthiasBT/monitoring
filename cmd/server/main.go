@@ -33,7 +33,6 @@ func gracefulShutdown(srv *http.Server, done chan struct{}, logger logging.ILogg
 	sig := <-quitChannel
 	logger.Infof("Received signal: %v\n", sig)
 	done <- struct{}{}
-
 	time.Sleep(2 * time.Second)
 
 	if err := srv.Shutdown(context.Background()); err != nil {
@@ -51,15 +50,17 @@ func main() {
 	storage := adapters.NewMemStorage(logger, nil)
 
 	done := make(chan struct{}, 1)
-	fileKeeper := adapters.NewFileKeeper(conf, logger, storage, done)
-	if *conf.Restore {
-		state := fileKeeper.Restore()
-		storage.Init(state)
-	}
-	if conf.StoresSync() {
-		storage.SetKeeper(fileKeeper)
-	} else {
-		go fileKeeper.FlushPeriodic()
+	if conf.Flushes() {
+		fileKeeper := adapters.NewFileKeeper(conf, logger, storage, done)
+		if *conf.Restore {
+			state := fileKeeper.Restore()
+			storage.Init(state)
+		}
+		if conf.FlushesSync() {
+			storage.SetKeeper(fileKeeper)
+		} else {
+			go fileKeeper.FlushPeriodic()
+		}
 	}
 
 	controller := usecases.NewBaseController(logger, storage, conf.TemplatePath)

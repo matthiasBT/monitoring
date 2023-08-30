@@ -30,7 +30,7 @@ func NewFileKeeper(
 	done chan struct{},
 ) entities.Keeper {
 	var tickerChan <-chan time.Time
-	if conf.StoresSync() {
+	if conf.FlushesSync() {
 		tickerChan = make(chan time.Time) // will never be used
 	} else {
 		ticker := time.NewTicker(time.Duration(*conf.StoreInterval) * time.Second)
@@ -43,7 +43,7 @@ func NewFileKeeper(
 		Done:      done,
 		Tick:      tickerChan,
 		Lock:      &sync.Mutex{},
-		StoreSync: conf.StoresSync(),
+		StoreSync: conf.FlushesSync(),
 	}
 }
 

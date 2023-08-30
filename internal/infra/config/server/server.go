@@ -30,7 +30,8 @@ func InitConfig() (*Config, error) {
 	}
 	conf.TemplatePath = templatePath
 	flagAddr := flag.String("a", DefAddr, "Server address. Usage: -a=host:port")
-	flagStoragePath := flag.String("f", DefFileStoragePath, "Path to storage file")
+	var flagStoragePath string
+	flag.StringVar(&flagStoragePath, "f", DefFileStoragePath, "Path to storage file")
 	flagRestore := flag.Bool("r", DefRestore, "Restore init state from the file (see -f flag)")
 	flagStoreInterval := flag.Uint("i", DefStoreInterval, "How often to store data in the file")
 	flag.Parse()
@@ -38,7 +39,7 @@ func InitConfig() (*Config, error) {
 		conf.Addr = *flagAddr
 	}
 	if conf.FileStoragePath == "" {
-		conf.FileStoragePath = *flagStoragePath
+		conf.FileStoragePath = flagStoragePath
 	}
 	if conf.Restore == nil {
 		conf.Restore = flagRestore
@@ -49,6 +50,10 @@ func InitConfig() (*Config, error) {
 	return conf, nil
 }
 
-func (c *Config) StoresSync() bool {
+func (c *Config) FlushesSync() bool {
 	return *c.StoreInterval == 0
+}
+
+func (c *Config) Flushes() bool {
+	return c.FileStoragePath != ""
 }
