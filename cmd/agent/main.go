@@ -7,29 +7,41 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/matthiasBT/monitoring/internal/adapters"
-	"github.com/matthiasBT/monitoring/internal/collector"
-	"github.com/matthiasBT/monitoring/internal/config"
+	"github.com/matthiasBT/monitoring/internal/agent/adapters"
+	"github.com/matthiasBT/monitoring/internal/agent/entities"
+	"github.com/matthiasBT/monitoring/internal/agent/usecases/poll"
+	"github.com/matthiasBT/monitoring/internal/agent/usecases/report"
+	"github.com/matthiasBT/monitoring/internal/infra/config/agent"
+	"github.com/matthiasBT/monitoring/internal/infra/logging"
 )
 
-const updateURL = "/update"
-
 func main() {
-	logger := adapters.SetupLogger()
-	conf := config.InitAgentConfig(logger)
-	ctx := collector.Context{
-		Logger:       logger,
-		PollCount:    0,
-		CurrSnapshot: nil,
-		PollTicker:   time.NewTicker(time.Duration(conf.PollInterval) * time.Second),
-		ReportTicker: time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
-		Done:         make(chan bool),
-		ServerAddr:   conf.Addr,
-		UpdateURL:    updateURL,
+	logger := logging.SetupLogger()
+	conf, err := agent.InitConfig()
+	if err != nil {
+		logger.Fatal(err)
 	}
-	reporter := collector.Reporter{Ctx: &ctx}
+	done := make(<-chan bool)
+	dataExchange := entities.SnapshotWrapper{CurrSnapshot: nil}
+	reporter := report.Reporter{
+		Logger: logger,
+		Data:   &dataExchange,
+		Ticker: time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
+		Done:   done,
+		SendAdapter: &adapters.HTTPReportAdapter{
+			Logger:     logger,
+			ServerAddr: conf.Addr,
+			UpdateURL:  conf.UpdateURL,
+		},
+	}
+	poller := poll.Poller{
+		Logger:    logger,
+		PollCount: 0,
+		Data:      &dataExchange,
+		Ticker:    time.NewTicker(time.Duration(conf.PollInterval) * time.Second),
+		Done:      done,
+	}
 	go reporter.Report()
-	poller := collector.Poller{Ctx: &ctx}
 	go poller.Poll()
 	quitChannel := make(chan os.Signal, 1)
 	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
