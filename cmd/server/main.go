@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"errors"
-	"github.com/matthiasBT/monitoring/cmd/server/periodic"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/matthiasBT/monitoring/cmd/server/periodic"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/matthiasBT/monitoring/internal/infra/compression"
@@ -65,7 +66,17 @@ func main() {
 		}
 	}
 
-	controller := usecases.NewBaseController(logger, storage, conf.TemplatePath)
+	var DBManager *adapters.DBManager
+	if conf.DatabaseDSN != "" {
+		DBManager, err = adapters.NewDBManager(conf.DatabaseDSN, logger)
+		if err != nil {
+			logger.Errorf("Failed to init database connection: %s\n", err.Error())
+			panic(err)
+		}
+		defer DBManager.Shutdown()
+	}
+
+	controller := usecases.NewBaseController(logger, storage, DBManager, conf.TemplatePath)
 	r := setupServer(logger, controller)
 	srv := http.Server{Addr: conf.Addr, Handler: r}
 	go func() {

@@ -20,6 +20,7 @@ type Config struct {
 	StoreInterval   *uint  `env:"STORE_INTERVAL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	Restore         *bool  `env:"RESTORE"`
+	DatabaseDSN     string `env:"DATABASE_DSN"`
 }
 
 func InitConfig() (*Config, error) {
@@ -28,18 +29,29 @@ func InitConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	conf.TemplatePath = templatePath
 	flagAddr := flag.String("a", DefAddr, "Server address. Usage: -a=host:port")
+
 	var flagStoragePath string
 	flag.StringVar(&flagStoragePath, "f", DefFileStoragePath, "Path to storage file")
+
+	var flagDatabaseDSN string
+	flag.StringVar(&flagDatabaseDSN, "d", "", "PostgreSQL database DSN")
+
 	flagRestore := flag.Bool("r", DefRestore, "Restore init state from the file (see -f flag)")
 	flagStoreInterval := flag.Uint("i", DefStoreInterval, "How often to store data in the file")
+
 	flag.Parse()
+
 	if conf.Addr == "" {
 		conf.Addr = *flagAddr
 	}
 	if conf.FileStoragePath == "" {
 		conf.FileStoragePath = flagStoragePath
+	}
+	if conf.DatabaseDSN == "" {
+		conf.DatabaseDSN = flagDatabaseDSN
 	}
 	if conf.Restore == nil {
 		conf.Restore = flagRestore

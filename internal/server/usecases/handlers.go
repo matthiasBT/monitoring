@@ -65,3 +65,14 @@ func (c *BaseController) getAllMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	w.Write(result.Bytes())
 }
+
+func (c *BaseController) ping(w http.ResponseWriter, r *http.Request) {
+	if c.DBManager == nil {
+		c.Logger.Errorf("Failed to ping the databases: no DB manager\n")
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	if err := c.DBManager.Ping(r.Context()); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	w.WriteHeader(http.StatusOK)
+}
