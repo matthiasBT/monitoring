@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 )
 
@@ -21,7 +22,16 @@ func (c *BaseController) updateMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, _ := UpdateMetric(c, metrics) // so far, there can't be any errors
+	result, err := UpdateMetric(r.Context(), c, metrics)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			w.WriteHeader(http.StatusBadRequest) // duplicate
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	if err := writeMetric(w, asJSON, result); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -42,7 +52,7 @@ func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := GetMetric(c, metrics)
+	result, err := GetMetric(r.Context(), c, metrics)
 	if err != nil {
 		var status int
 		if errors.Is(err, common.ErrUnknownMetric) {
@@ -61,7 +71,11 @@ func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *BaseController) getAllMetrics(w http.ResponseWriter, r *http.Request) {
-	result, _ := GetAllMetrics(c, "all_metrics.html") // so far, there can't be any errors
+	result, err := GetAllMetrics(r.Context(), c, "all_metrics.html")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html")
 	w.Write(result.Bytes())
 }

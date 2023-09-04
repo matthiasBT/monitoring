@@ -1,10 +1,12 @@
 package periodic
 
 import (
+	"context"
+	"time"
+
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
-	"time"
 )
 
 type Flusher struct {
@@ -40,25 +42,25 @@ func NewFlusher(
 	}
 }
 
-func (pf *Flusher) Flush() {
+func (pf *Flusher) Flush(ctx context.Context) {
 	pf.Logger.Infoln("Launching the periodic Flush job")
 	for {
 		select {
 		case <-pf.Done:
 			pf.Logger.Infoln("Stopping the periodic Flush job")
-			pf.flush(true)
+			pf.flush(ctx, true)
 			return
 		case tick := <-pf.Tick:
 			if !pf.IsSync { // the "else" is unreachable here, just a matter of precaution
 				pf.Logger.Infof("The periodic Flush job is ticking at %v\n", tick)
-				pf.flush(false)
+				pf.flush(ctx, false)
 			}
 		}
 	}
 }
 
-func (pf *Flusher) flush(mustSucceed bool) {
-	data, err := pf.Storage.Snapshot()
+func (pf *Flusher) flush(ctx context.Context, mustSucceed bool) {
+	data, err := pf.Storage.Snapshot(ctx)
 	if err != nil {
 		pf.Logger.Errorf("Failed to get data from storage: %s\n", err.Error())
 		if mustSucceed {

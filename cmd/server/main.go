@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/matthiasBT/monitoring/cmd/server/periodic"
+	"github.com/matthiasBT/monitoring/internal/server/entities"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/matthiasBT/monitoring/internal/infra/compression"
@@ -49,23 +50,6 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	storage := adapters.NewMemStorage(logger, nil)
-
-	done := make(chan struct{}, 1)
-	if conf.Flushes() {
-		fileKeeper := adapters.NewFileKeeper(conf, logger, done)
-		flusher := periodic.NewFlusher(conf, logger, storage, fileKeeper, done)
-		if *conf.Restore {
-			state := fileKeeper.Restore()
-			storage.Init(state)
-		}
-		if conf.FlushesSync() {
-			storage.SetKeeper(fileKeeper)
-		} else {
-			go flusher.Flush()
-		}
-	}
-
 	var DBManager *adapters.DBManager
 	if conf.DatabaseDSN != "" {
 		DBManager, err = adapters.NewDBManager(conf.DatabaseDSN, logger)
@@ -74,6 +58,27 @@ func main() {
 			panic(err)
 		}
 		defer DBManager.Shutdown()
+	}
+
+	var storage entities.Storage
+	done := make(chan struct{}, 1)
+	if DBManager != nil {
+		storage = adapters.NewDBStorage(DBManager.DB, logger, nil)
+	} else {
+		storage = adapters.NewMemStorage(logger, nil)
+		if conf.Flushes() {
+			fileKeeper := adapters.NewFileKeeper(conf, logger, done)
+			flusher := periodic.NewFlusher(conf, logger, storage, fileKeeper, done)
+			if *conf.Restore {
+				state := fileKeeper.Restore()
+				storage.Init(state)
+			}
+			if conf.FlushesSync() {
+				storage.SetKeeper(fileKeeper)
+			} else {
+				go flusher.Flush(context.Background())
+			}
+		}
 	}
 
 	controller := usecases.NewBaseController(logger, storage, DBManager, conf.TemplatePath)

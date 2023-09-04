@@ -2,30 +2,31 @@ package usecases
 
 import (
 	"bytes"
+	"context"
 	"html/template"
 	"path/filepath"
 
 	"github.com/matthiasBT/monitoring/internal/infra/entities"
 )
 
-func UpdateMetric(c *BaseController, metrics *entities.Metrics) (*entities.Metrics, error) {
-	result, err := c.Stor.Add(*metrics)
+func UpdateMetric(ctx context.Context, c *BaseController, metrics *entities.Metrics) (*entities.Metrics, error) {
+	result, err := c.Stor.Add(ctx, *metrics)
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-func GetMetric(c *BaseController, metrics *entities.Metrics) (*entities.Metrics, error) {
-	result, err := c.Stor.Get(*metrics)
+func GetMetric(ctx context.Context, c *BaseController, metrics *entities.Metrics) (*entities.Metrics, error) {
+	result, err := c.Stor.Get(ctx, *metrics)
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-func GetAllMetrics(c *BaseController, templateName string) (*bytes.Buffer, error) {
-	metrics, err := c.Stor.GetAll()
+func GetAllMetrics(ctx context.Context, c *BaseController, templateName string) (*bytes.Buffer, error) {
+	metrics, err := c.Stor.GetAll(ctx)
 	if err != nil {
 		return nil, err
 	}

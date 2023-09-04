@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"context"
 	"sync"
 
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
@@ -35,7 +36,7 @@ func (storage *MemStorage) SetKeeper(keeper entities.Keeper) {
 	storage.Keeper = keeper
 }
 
-func (storage *MemStorage) Add(update common.Metrics) (*common.Metrics, error) {
+func (storage *MemStorage) Add(ctx context.Context, update common.Metrics) (*common.Metrics, error) {
 	storage.Lock.Lock()
 	defer storage.Lock.Unlock()
 
@@ -44,26 +45,26 @@ func (storage *MemStorage) Add(update common.Metrics) (*common.Metrics, error) {
 	if metrics == nil || metrics.MType != update.MType {
 		storage.Logger.Infoln("Creating a new metric")
 		storage.Metrics[update.ID] = &update
-		storage.flush()
+		storage.flush(ctx)
 		return &update, nil
 	}
 	if update.MType == common.TypeGauge {
 		storage.Logger.Infof("Old metric value: %f\n", *metrics.Value)
 		metrics.Value = update.Value
 		storage.Logger.Infof("New metric value: %f\n", *metrics.Value)
-		storage.flush()
+		storage.flush(ctx)
 		return metrics, nil
 	} else { // Counter
 		storage.Logger.Infof("Old metric value: %d\n", *metrics.Delta)
 		var delta = *metrics.Delta + *update.Delta
 		metrics.Delta = &delta
 		storage.Logger.Infof("New metric value: %d\n", *metrics.Delta)
-		storage.flush()
+		storage.flush(ctx)
 		return metrics, nil
 	}
 }
 
-func (storage *MemStorage) Get(query common.Metrics) (*common.Metrics, error) {
+func (storage *MemStorage) Get(ctx context.Context, query common.Metrics) (*common.Metrics, error) {
 	storage.Logger.Infof("Getting the metric %s %s\n", query.ID, query.MType)
 	result, ok := storage.Metrics[query.ID]
 	if !ok || result.MType != query.MType {
@@ -73,11 +74,11 @@ func (storage *MemStorage) Get(query common.Metrics) (*common.Metrics, error) {
 	return result, nil
 }
 
-func (storage *MemStorage) GetAll() (map[string]*common.Metrics, error) {
+func (storage *MemStorage) GetAll(ctx context.Context) (map[string]*common.Metrics, error) {
 	return storage.Metrics, nil
 }
 
-func (storage *MemStorage) Snapshot() ([]*common.Metrics, error) {
+func (storage *MemStorage) Snapshot(ctx context.Context) ([]*common.Metrics, error) {
 	data := maps.Values(storage.Metrics)
 	return data, nil
 }
@@ -92,9 +93,9 @@ func (storage *MemStorage) Init(data []*common.Metrics) {
 	storage.Logger.Infoln("Init finished successfully")
 }
 
-func (storage *MemStorage) flush() {
+func (storage *MemStorage) flush(ctx context.Context) {
 	if storage.Keeper != nil {
-		snapshot, _ := storage.Snapshot()
+		snapshot, _ := storage.Snapshot(ctx)
 		storage.Keeper.Flush(snapshot)
 	}
 }
