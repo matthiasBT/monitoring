@@ -37,7 +37,7 @@ func (storage *DBStorage) Add(ctx context.Context, update common.Metrics) (*comm
 
 	storage.Logger.Infof("Updating a metric %s %s\n", update.ID, update.MType)
 
-	metrics, err := storage.get(ctx, update.ID)
+	metrics, err := storage.get(ctx, &update)
 	if err != nil {
 		return nil, err
 	}
@@ -57,9 +57,11 @@ func (storage *DBStorage) Add(ctx context.Context, update common.Metrics) (*comm
 	}
 }
 
-func (storage *DBStorage) Get(ctx context.Context, query common.Metrics) (*common.Metrics, error) {
-	if metrics, err := storage.get(ctx, query.ID); err != nil {
+func (storage *DBStorage) Get(ctx context.Context, search common.Metrics) (*common.Metrics, error) {
+	if metrics, err := storage.get(ctx, &search); err != nil {
 		return nil, err
+	} else if metrics == nil {
+		return nil, common.ErrUnknownMetric
 	} else {
 		return metrics, nil
 	}
@@ -99,22 +101,22 @@ func (storage *DBStorage) flush(context.Context) {
 	storage.Logger.Errorf("No flush is necessary for DBStorage") // TODO: warn
 }
 
-func (storage *DBStorage) get(ctx context.Context, id string) (*common.Metrics, error) {
-	query := "SELECT * FROM metrics WHERE id = $1"
+func (storage *DBStorage) get(ctx context.Context, search *common.Metrics) (*common.Metrics, error) {
+	query := "SELECT * FROM metrics WHERE id = $1 AND mtype = $2"
 	stmt, err := storage.DB.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	defer stmt.Close()
-	row := stmt.QueryRowContext(ctx, id)
+	row := stmt.QueryRowContext(ctx, search.ID, search.MType)
 
 	var result common.Metrics
 	if err := scanMetric(row, &result); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			storage.Logger.Infof("No row found with ID %s\n", id)
+			storage.Logger.Infof("No row found with ID and type %s\n", search.ID, search.MType)
 			return nil, nil
 		} else {
-			storage.Logger.Errorf("Failed to find metric %s %s\n", id, err.Error())
+			storage.Logger.Errorf("Failed to find metric %s %s\n", search.ID, search.MType, err.Error())
 			return nil, err
 		}
 	}

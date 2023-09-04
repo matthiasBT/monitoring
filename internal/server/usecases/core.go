@@ -22,6 +22,9 @@ func GetMetric(ctx context.Context, c *BaseController, metrics *entities.Metrics
 	if err != nil {
 		return nil, err
 	}
+	if result == nil {
+		return nil, entities.ErrUnknownMetric
+	}
 	return result, nil
 }
 

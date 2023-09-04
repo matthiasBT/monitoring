@@ -13,6 +13,7 @@ func (c *BaseController) updateMetric(w http.ResponseWriter, r *http.Request) {
 	var metrics *common.Metrics
 	if metrics = parseMetric(r, asJSON, true); metrics == nil {
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Failed to parse metric"))
 		return
 	}
 
@@ -27,14 +28,17 @@ func (c *BaseController) updateMetric(w http.ResponseWriter, r *http.Request) {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			w.WriteHeader(http.StatusBadRequest) // duplicate
+			w.Write([]byte("A metric with the same name and another type already exists"))
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
 	if err := writeMetric(w, asJSON, result); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 	}
 }
 
@@ -43,6 +47,7 @@ func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
 	var metrics *common.Metrics
 	if metrics = parseMetric(r, asJSON, false); metrics == nil {
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Failed to parse metric"))
 		return
 	}
 
@@ -67,6 +72,7 @@ func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
 
 	if err := writeMetric(w, asJSON, result); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 	}
 }
 
@@ -74,6 +80,7 @@ func (c *BaseController) getAllMetrics(w http.ResponseWriter, r *http.Request) {
 	result, err := GetAllMetrics(r.Context(), c, "all_metrics.html")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	w.Header().Set("Content-Type", "text/html")
@@ -84,9 +91,11 @@ func (c *BaseController) ping(w http.ResponseWriter, r *http.Request) {
 	if c.DBManager == nil {
 		c.Logger.Errorf("Failed to ping the databases: no DB manager\n")
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("No database was configured"))
 	}
 	if err := c.DBManager.Ping(r.Context()); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 	}
 	w.WriteHeader(http.StatusOK)
 }
