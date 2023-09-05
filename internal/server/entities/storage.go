@@ -7,9 +7,10 @@ import (
 )
 
 type Storage interface {
-	Add(ctx context.Context, update entities.Metrics) (*entities.Metrics, error)
+	Add(ctx context.Context, update entities.Metrics) (*entities.Metrics, error) // todo: ptr
 	Get(ctx context.Context, query entities.Metrics) (*entities.Metrics, error)
 	GetAll(ctx context.Context) (map[string]*entities.Metrics, error)
+	AddBatch(ctx context.Context, batch []*entities.Metrics) error
 	Snapshot(ctx context.Context) ([]*entities.Metrics, error)
 	Init([]*entities.Metrics)
 	SetKeeper(keeper Keeper)

@@ -1,7 +1,9 @@
 package usecases
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -17,18 +19,14 @@ func (c *BaseController) updateMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := metrics.Validate(true)
-	if err != nil {
+	if err := metrics.Validate(true); err != nil {
 		handleInvalidMetric(w, err)
 		return
 	}
 
 	result, err := UpdateMetric(r.Context(), c, metrics)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			w.WriteHeader(http.StatusBadRequest) // duplicate
-			w.Write([]byte("A metric with the same name and another type already exists"))
+		if c.handleDuplicate(w, err) {
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -87,6 +85,45 @@ func (c *BaseController) getAllMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Write(result.Bytes())
 }
 
+func (c *BaseController) massUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Supply data as JSON"))
+		return
+	}
+
+	var batch []*common.Metrics
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	if err := json.Unmarshal(body, &batch); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	for _, metrics := range batch {
+		if err := metrics.Validate(true); err != nil {
+			handleInvalidMetric(w, err)
+			return
+		}
+	}
+
+	if err := MassUpdate(r.Context(), c, batch); err != nil {
+		if c.handleDuplicate(w, err) {
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func (c *BaseController) ping(w http.ResponseWriter, r *http.Request) {
 	if c.DBManager == nil {
 		c.Logger.Errorf("Failed to ping the databases: no DB manager\n")
@@ -98,4 +135,14 @@ func (c *BaseController) ping(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (c *BaseController) handleDuplicate(w http.ResponseWriter, err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		w.WriteHeader(http.StatusBadRequest) // duplicate
+		w.Write([]byte("A metric with the same name and another type already exists"))
+		return true
+	}
+	return false
 }

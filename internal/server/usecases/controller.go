@@ -30,6 +30,7 @@ func (c *BaseController) Route() *chi.Mux {
 	r.Post("/value/", c.getMetric)
 	r.Post("/update/{type}/{name}/{value}", c.updateMetric)
 	r.Get("/value/{type}/{name}", c.getMetric)
+	r.Post("/updates/", c.massUpdate)
 	r.Get("/", c.getAllMetrics)
 	return r
 }

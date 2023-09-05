@@ -3,12 +3,13 @@ package adapters
 import (
 	"bufio"
 	"encoding/json"
+	"os"
+	"sync"
+
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
-	"os"
-	"sync"
 )
 
 type FileKeeper struct {

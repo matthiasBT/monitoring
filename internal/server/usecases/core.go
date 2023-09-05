@@ -18,14 +18,7 @@ func UpdateMetric(ctx context.Context, c *BaseController, metrics *entities.Metr
 }
 
 func GetMetric(ctx context.Context, c *BaseController, metrics *entities.Metrics) (*entities.Metrics, error) {
-	result, err := c.Stor.Get(ctx, *metrics)
-	if err != nil {
-		return nil, err
-	}
-	if result == nil {
-		return nil, entities.ErrUnknownMetric
-	}
-	return result, nil
+	return c.Stor.Get(ctx, *metrics)
 }
 
 func GetAllMetrics(ctx context.Context, c *BaseController, templateName string) (*bytes.Buffer, error) {
@@ -41,6 +34,10 @@ func GetAllMetrics(ctx context.Context, c *BaseController, templateName string) 
 		return nil, err
 	}
 	return &result, nil
+}
+
+func MassUpdate(ctx context.Context, c *BaseController, batch []*entities.Metrics) error {
+	return c.Stor.AddBatch(ctx, batch)
 }
 
 func prepareTemplateData(metrics map[string]*entities.Metrics) map[string]string {
