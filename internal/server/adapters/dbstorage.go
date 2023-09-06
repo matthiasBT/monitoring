@@ -63,7 +63,7 @@ func (storage *DBStorage) AddBatch(ctx context.Context, batch []*common.Metrics)
 }
 
 func (storage *DBStorage) Get(ctx context.Context, search common.Metrics) (*common.Metrics, error) {
-	if metrics, err := storage.get(ctx, &search); err != nil {
+	if metrics, err := storage.get(ctx, nil, &search); err != nil {
 		return nil, err
 	} else if metrics == nil {
 		return nil, common.ErrUnknownMetric
@@ -109,7 +109,7 @@ func (storage *DBStorage) flush(context.Context) {
 func (storage *DBStorage) addSingle(ctx context.Context, tx *sql.Tx, update *common.Metrics) (*common.Metrics, error) {
 	storage.Logger.Infof("Updating a metric %s %s\n", update.ID, update.MType)
 
-	metrics, err := storage.get(ctx, update)
+	metrics, err := storage.get(ctx, tx, update)
 	if err != nil {
 		return nil, err
 	}
@@ -129,15 +129,19 @@ func (storage *DBStorage) addSingle(ctx context.Context, tx *sql.Tx, update *com
 	}
 }
 
-func (storage *DBStorage) get(ctx context.Context, search *common.Metrics) (*common.Metrics, error) {
+func (storage *DBStorage) get(ctx context.Context, tx *sql.Tx, search *common.Metrics) (*common.Metrics, error) {
 	query := "SELECT * FROM metrics WHERE id = $1 AND mtype = $2"
-	stmt, err := storage.DB.PrepareContext(ctx, query)
-	if err != nil {
-		return nil, err
+	var row *sql.Row
+	if tx != nil {
+		row = tx.QueryRowContext(ctx, query, search.ID, search.MType)
+	} else {
+		stmt, err := storage.DB.PrepareContext(ctx, query)
+		if err != nil {
+			return nil, err
+		}
+		defer stmt.Close()
+		row = stmt.QueryRowContext(ctx, search.ID, search.MType)
 	}
-	defer stmt.Close()
-	row := stmt.QueryRowContext(ctx, search.ID, search.MType)
-
 	var result common.Metrics
 	if err := scanMetric(row, &result); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
