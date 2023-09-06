@@ -141,7 +141,7 @@ func (storage *DBStorage) get(ctx context.Context, search *common.Metrics) (*com
 	var result common.Metrics
 	if err := scanMetric(row, &result); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			storage.Logger.Infof("No row found with ID and type %s\n", search.ID, search.MType)
+			storage.Logger.Infof("No row found with ID %s and type %s\n", search.ID, search.MType)
 			return nil, nil
 		} else {
 			storage.Logger.Errorf("Failed to find metric %s %s\n", search.ID, search.MType, err.Error())
@@ -170,6 +170,7 @@ func (storage *DBStorage) create(ctx context.Context, tx *sql.Tx, create *common
 		storage.Logger.Errorf("Failed to create a new metric %s\n", err.Error())
 		return err
 	}
+	storage.Logger.Infof("Created: %s %s\n", create.ID, create.MType)
 	return nil
 }
 
@@ -206,6 +207,7 @@ func (storage *DBStorage) update(ctx context.Context, tx *sql.Tx, update *common
 		storage.Logger.Errorf("Failed to update metric %s %s\n", update.ID, err.Error())
 		return nil, err
 	}
+	storage.Logger.Infof("Updated: %s %s\n", update.ID, update.MType)
 	return &result, nil
 }
 
