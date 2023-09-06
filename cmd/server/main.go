@@ -39,7 +39,7 @@ func gracefulShutdown(srv *http.Server, done chan struct{}, logger logging.ILogg
 	time.Sleep(2 * time.Second)
 
 	if err := srv.Shutdown(context.Background()); err != nil {
-		log.Fatalf("Server shutdown failed: %v\n", err)
+		log.Fatalf("Server shutdown failed: %v\n", err.Error())
 	}
 }
 

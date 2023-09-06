@@ -13,4 +13,5 @@ type SnapshotWrapper struct {
 
 type IReporter interface {
 	Report(metrics *entities.Metrics) error
+	ReportBatch(batch []*entities.Metrics) error
 }

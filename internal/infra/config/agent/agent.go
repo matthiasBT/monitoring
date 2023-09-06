@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	updateURL         = "/update/"
+	updateURL         = "/updates/"
 	DefAddr           = "localhost:8080"
 	DefReportInterval = 10
 	DefPollInterval   = 2
