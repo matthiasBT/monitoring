@@ -114,7 +114,7 @@ func (storage *DBStorage) addSingle(ctx context.Context, tx *sql.Tx, update *com
 		return nil, err
 	}
 
-	if metrics == nil || metrics.MType != update.MType {
+	if metrics == nil {
 		storage.Logger.Infoln("Creating a new metric")
 		if err := storage.create(ctx, tx, update); err != nil {
 			return nil, err
@@ -152,7 +152,14 @@ func (storage *DBStorage) get(ctx context.Context, search *common.Metrics) (*com
 }
 
 func (storage *DBStorage) create(ctx context.Context, tx *sql.Tx, create *common.Metrics) error {
-	query := "INSERT INTO metrics(id, mtype, delta, val) VALUES ($1, $2, $3, $4)"
+	query := `
+		INSERT INTO metrics(id, mtype, delta, val)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (id) DO UPDATE
+		SET mtype = excluded.mtype, delta = excluded.delta, val = excluded.val
+		WHERE metrics.id = excluded.id
+		RETURNING *
+	`
 	var err error
 	if tx == nil {
 		_, err = storage.DB.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value)

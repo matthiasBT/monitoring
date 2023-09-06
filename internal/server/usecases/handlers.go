@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 )
 
@@ -26,9 +25,6 @@ func (c *BaseController) updateMetric(w http.ResponseWriter, r *http.Request) {
 
 	result, err := UpdateMetric(r.Context(), c, metrics)
 	if err != nil {
-		if c.handleDuplicate(w, err) {
-			return
-		}
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		return
@@ -114,9 +110,6 @@ func (c *BaseController) massUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := MassUpdate(r.Context(), c, batch); err != nil {
-		if c.handleDuplicate(w, err) {
-			return
-		}
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		return
@@ -135,14 +128,4 @@ func (c *BaseController) ping(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 	}
 	w.WriteHeader(http.StatusOK)
-}
-
-func (c *BaseController) handleDuplicate(w http.ResponseWriter, err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		w.WriteHeader(http.StatusBadRequest) // duplicate
-		w.Write([]byte("A metric with the same name and another type already exists"))
-		return true
-	}
-	return false
 }
