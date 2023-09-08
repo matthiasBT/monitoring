@@ -166,7 +166,7 @@ func (storage *DBStorage) create(ctx context.Context, tx *sql.Tx, create *common
 	`
 	var err error
 	if tx == nil {
-		_, err = storage.DB.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value)
+		_, err = storage.DB.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value) // here
 	} else {
 		_, err = tx.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value)
 	}
