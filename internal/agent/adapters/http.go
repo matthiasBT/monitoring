@@ -25,7 +25,7 @@ type HTTPReportAdapter struct {
 func (r *HTTPReportAdapter) Report(metrics *common.Metrics) error {
 	r.Lock.Lock()
 	defer r.Lock.Unlock()
-	body, err := json.Marshal(metrics)
+	payload, err := json.Marshal(metrics)
 	if err != nil {
 		r.Logger.Errorf("Failed to marshal a metric: %v", metrics)
 		return err
@@ -33,21 +33,24 @@ func (r *HTTPReportAdapter) Report(metrics *common.Metrics) error {
 
 	u := url.URL{Scheme: "http", Host: r.ServerAddr, Path: r.UpdateURL}
 	f := func() (any, error) {
-		return http.Post(u.String(), "application/json", bytes.NewReader(body))
+		resp, err := http.Post(u.String(), "application/json", bytes.NewReader(payload))
+		if err != nil {
+			r.Logger.Errorf("Request failed: %v\n", err.Error())
+			return nil, err
+		}
+		defer resp.Body.Close()
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return body, nil
 	}
-	respAny, err := r.Retrier.RetryChecked(context.Background(), f, utils.CheckConnectionError)
+	bodyAny, err := r.Retrier.RetryChecked(context.Background(), f, utils.CheckConnectionError)
 	if err != nil {
-		r.Logger.Errorf("Request failed: %v\n", err.Error())
 		return err
 	}
-	resp := respAny.(*http.Response)
-	defer resp.Body.Close()
-	body, err = io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	r.Logger.Infof("Success: %v", string(body))
+	body := bodyAny.([]byte)
+	r.Logger.Infof("Success. Server response: %v", string(body))
 	return nil
 }
 
@@ -62,21 +65,24 @@ func (r *HTTPReportAdapter) ReportBatch(batch []*common.Metrics) error {
 
 	u := url.URL{Scheme: "http", Host: r.ServerAddr, Path: r.UpdateURL}
 	f := func() (any, error) {
-		return http.Post(u.String(), "application/json", bytes.NewReader(payload))
+		resp, err := http.Post(u.String(), "application/json", bytes.NewReader(payload))
+		if err != nil {
+			r.Logger.Errorf("Request failed: %v\n", err.Error())
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return body, nil
 	}
-	respAny, err := r.Retrier.RetryChecked(context.Background(), f, utils.CheckConnectionError)
+	bodyAny, err := r.Retrier.RetryChecked(context.Background(), f, utils.CheckConnectionError)
 	if err != nil {
-		r.Logger.Errorf("Request failed: %v\n", err.Error())
 		return err
 	}
-	resp := respAny.(*http.Response)
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	r.Logger.Infof("Success: %v", string(body))
+	body := bodyAny.([]byte)
+	r.Logger.Infof("Success. Server response: %v", string(body))
 	return nil
 }

@@ -82,7 +82,15 @@ func (storage *DBStorage) Get(ctx context.Context, search common.Metrics) (*comm
 
 func (storage *DBStorage) GetAll(ctx context.Context) (map[string]*common.Metrics, error) {
 	f := func() (any, error) {
-		return storage.DB.QueryContext(ctx, "SELECT * FROM metrics")
+		rows, err := storage.DB.QueryContext(ctx, "SELECT * FROM metrics")
+		if err != nil {
+			return nil, err
+		}
+		// because of linter this check must be done twice - here and after the retrier
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return rows, nil
 	}
 	rowsAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
 	if err != nil {
@@ -100,6 +108,9 @@ func (storage *DBStorage) GetAll(ctx context.Context) (map[string]*common.Metric
 			return nil, err
 		}
 		result[metrics.ID] = &metrics
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
