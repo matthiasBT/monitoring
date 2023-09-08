@@ -133,7 +133,7 @@ func TestMemStorage_Add(t *testing.T) {
 	for _, tt := range tests {
 		stor.Metrics = tt.Metrics
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := stor.Add(context.Background(), tt.update)
+			got, err := stor.Add(context.Background(), &tt.update)
 			if (err != nil && tt.wantErr == nil) ||
 				(err == nil && tt.wantErr != nil) ||
 				(err != nil && tt.wantErr != nil && !errors.Is(err, tt.wantErr)) {
@@ -245,7 +245,7 @@ func TestMemStorage_Get(t *testing.T) {
 	for _, tt := range tests {
 		stor.Metrics = tt.Metrics
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := stor.Get(context.Background(), tt.query)
+			got, err := stor.Get(context.Background(), &tt.query)
 			if (err != nil && tt.wantErr == nil) ||
 				(err == nil && tt.wantErr != nil) ||
 				(err != nil && tt.wantErr != nil && !errors.Is(err, tt.wantErr)) {

@@ -10,7 +10,7 @@ import (
 )
 
 func UpdateMetric(ctx context.Context, c *BaseController, metrics *entities.Metrics) (*entities.Metrics, error) {
-	result, err := c.Stor.Add(ctx, *metrics)
+	result, err := c.Stor.Add(ctx, metrics)
 	if err != nil {
 		return nil, err
 	}
@@ -18,7 +18,7 @@ func UpdateMetric(ctx context.Context, c *BaseController, metrics *entities.Metr
 }
 
 func GetMetric(ctx context.Context, c *BaseController, metrics *entities.Metrics) (*entities.Metrics, error) {
-	return c.Stor.Get(ctx, *metrics)
+	return c.Stor.Get(ctx, metrics)
 }
 
 func GetAllMetrics(ctx context.Context, c *BaseController, templateName string) (*bytes.Buffer, error) {

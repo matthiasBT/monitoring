@@ -34,11 +34,11 @@ func (storage *DBStorage) SetKeeper(entities.Keeper) {
 	storage.Logger.Errorf("No keeper is necessary for DBStorage")
 }
 
-func (storage *DBStorage) Add(ctx context.Context, update common.Metrics) (*common.Metrics, error) {
+func (storage *DBStorage) Add(ctx context.Context, update *common.Metrics) (*common.Metrics, error) {
 	storage.Lock.Lock()
 	defer storage.Lock.Unlock()
 
-	return storage.addSingle(ctx, nil, &update)
+	return storage.addSingle(ctx, nil, update)
 }
 
 func (storage *DBStorage) AddBatch(ctx context.Context, batch []*common.Metrics) error {
@@ -70,8 +70,8 @@ func (storage *DBStorage) AddBatch(ctx context.Context, batch []*common.Metrics)
 	return nil
 }
 
-func (storage *DBStorage) Get(ctx context.Context, search common.Metrics) (*common.Metrics, error) {
-	if metrics, err := storage.get(ctx, nil, &search); err != nil {
+func (storage *DBStorage) Get(ctx context.Context, search *common.Metrics) (*common.Metrics, error) {
+	if metrics, err := storage.get(ctx, nil, search); err != nil {
 		return nil, err
 	} else if metrics == nil {
 		return nil, common.ErrUnknownMetric

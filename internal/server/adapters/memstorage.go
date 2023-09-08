@@ -36,11 +36,11 @@ func (storage *MemStorage) SetKeeper(keeper entities.Keeper) {
 	storage.Keeper = keeper
 }
 
-func (storage *MemStorage) Add(ctx context.Context, update common.Metrics) (*common.Metrics, error) {
+func (storage *MemStorage) Add(ctx context.Context, update *common.Metrics) (*common.Metrics, error) {
 	storage.Lock.Lock()
 	defer storage.Lock.Unlock()
 
-	return storage.addSingle(ctx, &update)
+	return storage.addSingle(ctx, update)
 }
 
 func (storage *MemStorage) AddBatch(ctx context.Context, batch []*common.Metrics) error {
@@ -56,7 +56,7 @@ func (storage *MemStorage) AddBatch(ctx context.Context, batch []*common.Metrics
 	return nil
 }
 
-func (storage *MemStorage) Get(ctx context.Context, query common.Metrics) (*common.Metrics, error) {
+func (storage *MemStorage) Get(ctx context.Context, query *common.Metrics) (*common.Metrics, error) {
 	storage.Logger.Infof("Getting the metric %s %s\n", query.ID, query.MType)
 	result, ok := storage.Metrics[query.ID]
 	if !ok || result.MType != query.MType {
