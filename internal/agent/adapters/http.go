@@ -25,6 +25,7 @@ func (r *HTTPReportAdapter) Report(metrics *common.Metrics) error {
 	}
 
 	u := url.URL{Scheme: "http", Host: r.ServerAddr, Path: r.UpdateURL}
+	// TODO
 	resp, err := http.Post(u.String(), "application/json", bytes.NewReader(body))
 	if err != nil {
 		r.Logger.Errorf("Request failed: %v\n", err.Error())
@@ -48,6 +49,7 @@ func (r *HTTPReportAdapter) ReportBatch(batch []*common.Metrics) error {
 	}
 
 	u := url.URL{Scheme: "http", Host: r.ServerAddr, Path: r.UpdateURL}
+	// TODO
 	resp, err := http.Post(u.String(), "application/json", bytes.NewReader(payload))
 	if err != nil {
 		r.Logger.Errorf("Request failed: %v\n", err.Error())

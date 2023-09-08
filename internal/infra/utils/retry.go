@@ -11,7 +11,7 @@ import (
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 )
 
-type Retry struct {
+type Retrier struct {
 	Attempts         int
 	IntervalFirst    time.Duration
 	IntervalIncrease time.Duration
@@ -30,13 +30,15 @@ var retriableErrorsPostgreSQL = map[string]bool{
 	pgerrcode.ProtocolViolation:                             true,
 }
 
-func (r *Retry) RetryWithResultAndError(ctx context.Context, f func() (any, error), checkError func(error) bool) (any, error) {
+func (r *Retrier) RetryChecked(ctx context.Context, f func() (any, error), checkError func(error) bool) (any, error) {
 	var result any
 	var errChain []error
 
 	interval := r.IntervalFirst
 	for i := 1; i <= r.Attempts; i++ {
-		r.Logger.Infof("Starting attempt %d of %d\n", i, r.Attempts)
+		if i > 1 { // prevent spamming
+			r.Logger.Infof("Starting attempt %d of %d\n", i, r.Attempts)
+		}
 		result, err := f()
 		if err != nil && checkError(err) {
 			r.Logger.Infof("Retriable error: %s\n", err.Error())

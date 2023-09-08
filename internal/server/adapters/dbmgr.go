@@ -57,7 +57,7 @@ func (d *DBManager) Init(dsn string) error {
 func (d *DBManager) prepare() error {
 	d.Logger.Infoln("Creating database objects if necessary")
 
-	retry := utils.Retry{
+	retry := utils.Retrier{
 		Attempts:         3,
 		IntervalFirst:    1 * time.Second,
 		IntervalIncrease: 2 * time.Second,
@@ -67,7 +67,7 @@ func (d *DBManager) prepare() error {
 		f := func() (any, error) {
 			return d.DB.Exec(query)
 		}
-		if _, err := retry.RetryWithResultAndError(context.Background(), f, utils.CheckPostgresError); err != nil {
+		if _, err := retry.RetryChecked(context.Background(), f, utils.CheckPostgresError); err != nil {
 			d.Logger.Errorf("Failed to execute query: %s\n", err.Error())
 			return err
 		}
@@ -97,5 +97,5 @@ func (d *DBManager) Ping(ctx context.Context) error {
 
 type RetryingDB struct {
 	sql.DB
-	retry *utils.Retry
+	retry *utils.Retrier
 }

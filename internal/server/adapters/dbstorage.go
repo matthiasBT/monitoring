@@ -8,22 +8,25 @@ import (
 
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
 type DBStorage struct {
-	DB     *sql.DB
-	Lock   *sync.Mutex
-	Logger logging.ILogger
-	Keeper entities.Keeper
+	DB      *sql.DB
+	Lock    *sync.Mutex
+	Logger  logging.ILogger
+	Keeper  entities.Keeper
+	Retrier utils.Retrier
 }
 
-func NewDBStorage(db *sql.DB, logger logging.ILogger, keeper entities.Keeper) entities.Storage {
+func NewDBStorage(db *sql.DB, logger logging.ILogger, keeper entities.Keeper, retrier utils.Retrier) entities.Storage {
 	return &DBStorage{
-		Lock:   &sync.Mutex{},
-		DB:     db,
-		Logger: logger,
-		Keeper: keeper,
+		Lock:    &sync.Mutex{},
+		DB:      db,
+		Logger:  logger,
+		Keeper:  keeper,
+		Retrier: retrier,
 	}
 }
 
@@ -46,10 +49,15 @@ func (storage *DBStorage) AddBatch(ctx context.Context, batch []*common.Metrics)
 		Isolation: sql.LevelReadCommitted,
 		ReadOnly:  false,
 	}
-	tx, err := storage.DB.BeginTx(ctx, &txOpt)
+
+	f := func() (any, error) {
+		return storage.DB.BeginTx(ctx, &txOpt)
+	}
+	txAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckPostgresError)
 	if err != nil {
 		storage.Logger.Errorf("Failed to open a transaction: %s\n", err.Error())
 	}
+	var tx = txAny.(*sql.Tx)
 	defer tx.Commit()
 
 	for _, metrics := range batch {
@@ -73,13 +81,16 @@ func (storage *DBStorage) Get(ctx context.Context, search common.Metrics) (*comm
 }
 
 func (storage *DBStorage) GetAll(ctx context.Context) (map[string]*common.Metrics, error) {
-	query := "SELECT * FROM metrics"
-	rows, err := storage.DB.QueryContext(ctx, query)
+	f := func() (any, error) {
+		return storage.DB.QueryContext(ctx, "SELECT * FROM metrics")
+	}
+	rowsAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckPostgresError)
 	if err != nil {
 		storage.Logger.Errorf("Failed to fetch all table: %s\n", err.Error())
 		return nil, err
 	}
 
+	var rows = rowsAny.(*sql.Rows)
 	defer rows.Close()
 	var result = make(map[string]*common.Metrics)
 	for rows.Next() {
@@ -135,7 +146,7 @@ func (storage *DBStorage) get(ctx context.Context, tx *sql.Tx, search *common.Me
 	if tx != nil {
 		row = tx.QueryRowContext(ctx, query, search.ID, search.MType)
 	} else {
-		stmt, err := storage.DB.PrepareContext(ctx, query)
+		stmt, err := storage.prepareStatement(ctx, query)
 		if err != nil {
 			return nil, err
 		}
@@ -166,7 +177,10 @@ func (storage *DBStorage) create(ctx context.Context, tx *sql.Tx, create *common
 	`
 	var err error
 	if tx == nil {
-		_, err = storage.DB.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value) // here
+		f := func() (any, error) {
+			return storage.DB.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value)
+		}
+		_, err = storage.Retrier.RetryChecked(ctx, f, utils.CheckPostgresError)
 	} else {
 		_, err = tx.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value)
 	}
@@ -183,7 +197,7 @@ func (storage *DBStorage) update(ctx context.Context, tx *sql.Tx, update *common
 	if update.MType == common.TypeCounter {
 		query := "UPDATE metrics SET delta = delta + $1 WHERE id = $2 RETURNING *"
 		if tx == nil {
-			stmt, err := storage.DB.PrepareContext(ctx, query)
+			stmt, err := storage.prepareStatement(ctx, query)
 			if err != nil {
 				return nil, err
 			}
@@ -195,7 +209,7 @@ func (storage *DBStorage) update(ctx context.Context, tx *sql.Tx, update *common
 	} else {
 		query := "UPDATE metrics SET val = $1 WHERE id = $2 RETURNING *"
 		if tx == nil {
-			stmt, err := storage.DB.PrepareContext(ctx, query)
+			stmt, err := storage.prepareStatement(ctx, query)
 			if err != nil {
 				return nil, err
 			}
@@ -213,6 +227,18 @@ func (storage *DBStorage) update(ctx context.Context, tx *sql.Tx, update *common
 	}
 	storage.Logger.Infof("Updated: %s %s\n", update.ID, update.MType)
 	return &result, nil
+}
+
+func (storage *DBStorage) prepareStatement(ctx context.Context, query string) (*sql.Stmt, error) {
+	f := func() (any, error) {
+		return storage.DB.PrepareContext(ctx, query)
+	}
+	stmtAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckPostgresError)
+	if err != nil {
+		storage.Logger.Errorf("Failed to open a statement: %s\n", err.Error())
+		return nil, err
+	}
+	return stmtAny.(*sql.Stmt), nil
 }
 
 func scanMetric(row *sql.Row, result *common.Metrics) error {

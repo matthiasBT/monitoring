@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/matthiasBT/monitoring/cmd/server/periodic"
+	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 
 	"github.com/go-chi/chi/v5"
@@ -43,6 +44,15 @@ func gracefulShutdown(srv *http.Server, done chan struct{}, logger logging.ILogg
 	}
 }
 
+func setupRetrier(conf *server.Config, logger logging.ILogger) utils.Retrier {
+	return utils.Retrier{
+		Attempts:         conf.RetryAttempts,
+		IntervalFirst:    conf.RetryIntervalInitial,
+		IntervalIncrease: conf.RetryIntervalBackoff,
+		Logger:           logger,
+	}
+}
+
 func main() {
 	logger := logging.SetupLogger()
 	conf, err := server.InitConfig()
@@ -63,7 +73,7 @@ func main() {
 	var storage entities.Storage
 	done := make(chan struct{}, 1)
 	if DBManager != nil {
-		storage = adapters.NewDBStorage(DBManager.DB, logger, nil)
+		storage = adapters.NewDBStorage(DBManager.DB, logger, nil, setupRetrier(conf, logger))
 	} else {
 		storage = adapters.NewMemStorage(logger, nil)
 		if conf.Flushes() {
