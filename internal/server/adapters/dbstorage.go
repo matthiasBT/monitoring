@@ -116,16 +116,16 @@ func (storage *DBStorage) GetAll(ctx context.Context) (map[string]*common.Metric
 }
 
 func (storage *DBStorage) Snapshot(context.Context) ([]*common.Metrics, error) {
-	storage.Logger.Errorf("No snapshot can be taken from DBStorage") // TODO: warn
-	return nil, nil                                                  // TODO: return error?
+	storage.Logger.Warningf("No snapshot can be taken from DBStorage")
+	return nil, nil // TODO: return error?
 }
 
 func (storage *DBStorage) Init([]*common.Metrics) {
-	storage.Logger.Errorf("No init is necessary for DBStorage") // TODO: warn
+	storage.Logger.Warningf("No init is necessary for DBStorage")
 }
 
 func (storage *DBStorage) flush(context.Context) {
-	storage.Logger.Errorf("No flush is necessary for DBStorage") // TODO: warn
+	storage.Logger.Warningf("No flush is necessary for DBStorage")
 }
 
 func (storage *DBStorage) addSingle(ctx context.Context, tx *sql.Tx, update *common.Metrics) (*common.Metrics, error) {

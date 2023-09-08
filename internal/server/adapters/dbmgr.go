@@ -43,7 +43,7 @@ func NewDBManager(dsn string, logger logging.ILogger) (*DBManager, error) {
 }
 
 func (d *DBManager) Init(dsn string) error {
-	d.Logger.Infoln("Opening the database: %s\n", dsn) // TODO: switch to debug
+	d.Logger.Debugf("Opening the database: %s\n", dsn)
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		d.Logger.Errorf("Failed to open the database: %s\n", err.Error())

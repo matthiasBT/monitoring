@@ -6,4 +6,6 @@ type ILogger interface {
 	Infoln(args ...interface{})
 	Fatal(args ...interface{})
 	Errorf(format string, args ...interface{})
+	Warningf(format string, args ...interface{})
+	Debugf(format string, args ...interface{})
 }
