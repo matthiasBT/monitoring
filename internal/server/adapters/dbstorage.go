@@ -53,7 +53,7 @@ func (storage *DBStorage) AddBatch(ctx context.Context, batch []*common.Metrics)
 	f := func() (any, error) {
 		return storage.DB.BeginTx(ctx, &txOpt)
 	}
-	txAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckPostgresError)
+	txAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
 	if err != nil {
 		storage.Logger.Errorf("Failed to open a transaction: %s\n", err.Error())
 	}
@@ -84,7 +84,7 @@ func (storage *DBStorage) GetAll(ctx context.Context) (map[string]*common.Metric
 	f := func() (any, error) {
 		return storage.DB.QueryContext(ctx, "SELECT * FROM metrics")
 	}
-	rowsAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckPostgresError)
+	rowsAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
 	if err != nil {
 		storage.Logger.Errorf("Failed to fetch all table: %s\n", err.Error())
 		return nil, err
@@ -180,7 +180,7 @@ func (storage *DBStorage) create(ctx context.Context, tx *sql.Tx, create *common
 		f := func() (any, error) {
 			return storage.DB.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value)
 		}
-		_, err = storage.Retrier.RetryChecked(ctx, f, utils.CheckPostgresError)
+		_, err = storage.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
 	} else {
 		_, err = tx.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value)
 	}
@@ -233,7 +233,7 @@ func (storage *DBStorage) prepareStatement(ctx context.Context, query string) (*
 	f := func() (any, error) {
 		return storage.DB.PrepareContext(ctx, query)
 	}
-	stmtAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckPostgresError)
+	stmtAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
 	if err != nil {
 		storage.Logger.Errorf("Failed to open a statement: %s\n", err.Error())
 		return nil, err

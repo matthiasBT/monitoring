@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -13,7 +14,17 @@ import (
 	"github.com/matthiasBT/monitoring/internal/agent/usecases/report"
 	"github.com/matthiasBT/monitoring/internal/infra/config/agent"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/infra/utils"
 )
+
+func setupRetrier(conf *agent.Config, logger logging.ILogger) utils.Retrier {
+	return utils.Retrier{
+		Attempts:         conf.RetryAttempts,
+		IntervalFirst:    conf.RetryIntervalInitial,
+		IntervalIncrease: conf.RetryIntervalBackoff,
+		Logger:           logger,
+	}
+}
 
 func main() {
 	logger := logging.SetupLogger()
@@ -32,6 +43,8 @@ func main() {
 			Logger:     logger,
 			ServerAddr: conf.Addr,
 			UpdateURL:  conf.UpdateURL,
+			Retrier:    setupRetrier(conf, logger),
+			Lock:       &sync.Mutex{},
 		},
 	}
 	poller := poll.Poller{

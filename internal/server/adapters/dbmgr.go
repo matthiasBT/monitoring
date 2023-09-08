@@ -67,7 +67,7 @@ func (d *DBManager) prepare() error {
 		f := func() (any, error) {
 			return d.DB.Exec(query)
 		}
-		if _, err := retry.RetryChecked(context.Background(), f, utils.CheckPostgresError); err != nil {
+		if _, err := retry.RetryChecked(context.Background(), f, utils.CheckConnectionError); err != nil {
 			d.Logger.Errorf("Failed to execute query: %s\n", err.Error())
 			return err
 		}

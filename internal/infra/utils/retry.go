@@ -58,14 +58,14 @@ func (r *Retrier) RetryChecked(ctx context.Context, f func() (any, error), check
 		return result, nil
 	}
 	if err := errors.Join(errChain...); err != nil {
-		r.Logger.Errorf("All attempts failed: %s\n", err.Error())
+		r.Logger.Errorf("All attempts failed\n")
 		return nil, err
 	}
 	r.Logger.Infoln("Success")
 	return result, nil
 }
 
-func CheckPostgresError(err error) bool {
+func CheckConnectionError(err error) bool {
 	var pgErr *pgconn.PgError
 	var netErr *net.OpError
 	return errors.As(err, &pgErr) && retriableErrorsPostgreSQL[pgErr.Code] || errors.As(err, &netErr)
