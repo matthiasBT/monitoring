@@ -35,13 +35,13 @@ func (r *Retrier) RetryChecked(ctx context.Context, f func() (any, error), check
 	var errChain []error
 
 	interval := r.IntervalFirst
-	for i := 1; i <= r.Attempts; i++ {
-		if i > 1 { // prevent spamming
-			r.Logger.Infof("Starting attempt %d of %d\n", i, r.Attempts)
+	for i := 0; i <= r.Attempts; i++ {
+		if i > 1 {
+			r.Logger.Infof("Starting retry %d of %d\n", i, r.Attempts)
 		}
 		result, err := f()
-		if err != nil && checkError(err) {
-			r.Logger.Infof("Retriable error: %s\n", err.Error())
+		if err != nil && checkError(err) && i != r.Attempts {
+			r.Logger.Infof("Retriable error: %s. Repeat after: %s\n", err.Error(), interval)
 			errChain = append(errChain, err)
 			if sleepErr := sleepInContext(ctx, interval); sleepErr != nil {
 				errChain = append(errChain, sleepErr)
