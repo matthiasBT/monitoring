@@ -34,6 +34,7 @@ func main() {
 	}
 	done := make(<-chan bool)
 	dataExchange := entities.SnapshotWrapper{CurrSnapshot: nil}
+	retrier := setupRetrier(conf, logger)
 	reporter := report.Reporter{
 		Logger: logger,
 		Data:   &dataExchange,
@@ -43,7 +44,7 @@ func main() {
 			Logger:     logger,
 			ServerAddr: conf.Addr,
 			UpdateURL:  conf.UpdateURL,
-			Retrier:    setupRetrier(conf, logger),
+			Retrier:    retrier,
 			Lock:       &sync.Mutex{},
 		},
 	}
