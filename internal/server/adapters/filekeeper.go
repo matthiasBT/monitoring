@@ -2,7 +2,9 @@ package adapters
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
+	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"os"
 	"sync"
 
@@ -13,22 +15,24 @@ import (
 )
 
 type FileKeeper struct {
-	Logger logging.ILogger
-	Path   string
-	Done   <-chan struct{}
-	Lock   *sync.Mutex
+	Logger  logging.ILogger
+	Path    string
+	Done    <-chan struct{}
+	Retrier utils.Retrier
+	Lock    *sync.Mutex
 }
 
-func NewFileKeeper(conf *server.Config, logger logging.ILogger, done chan struct{}) entities.Keeper {
+func NewFileKeeper(conf *server.Config, logger logging.ILogger, done chan struct{}, retrier utils.Retrier) entities.Keeper {
 	return &FileKeeper{
-		Logger: logger,
-		Path:   conf.FileStoragePath,
-		Done:   done,
-		Lock:   &sync.Mutex{},
+		Logger:  logger,
+		Path:    conf.FileStoragePath,
+		Done:    done,
+		Retrier: retrier,
+		Lock:    &sync.Mutex{},
 	}
 }
 
-func (fs *FileKeeper) Flush(storageSnapshot []*common.Metrics) error {
+func (fs *FileKeeper) Flush(ctx context.Context, storageSnapshot []*common.Metrics) error {
 	fs.Logger.Infoln("Starting saving the storage data")
 
 	fs.Lock.Lock()

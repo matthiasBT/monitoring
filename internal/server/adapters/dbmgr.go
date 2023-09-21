@@ -32,6 +32,8 @@ const (
 	`
 )
 
+// todo: get rid of
+
 type DBManager struct {
 	DB     *sql.DB
 	Logger logging.ILogger

@@ -78,5 +78,5 @@ func (c *Config) FlushesSync() bool {
 }
 
 func (c *Config) Flushes() bool {
-	return c.FileStoragePath != ""
+	return c.FileStoragePath != "" || c.DatabaseDSN != ""
 }

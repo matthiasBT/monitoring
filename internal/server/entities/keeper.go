@@ -1,8 +1,11 @@
 package entities
 
-import "github.com/matthiasBT/monitoring/internal/infra/entities"
+import (
+	"context"
+	"github.com/matthiasBT/monitoring/internal/infra/entities"
+)
 
 type Keeper interface {
-	Flush([]*entities.Metrics) error
+	Flush(context.Context, []*entities.Metrics) error
 	Restore() []*entities.Metrics
 }

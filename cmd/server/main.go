@@ -71,23 +71,25 @@ func main() {
 	}
 
 	var storage entities.Storage
+	var keeper entities.Keeper
 	done := make(chan struct{}, 1)
-	if DBManager != nil {
-		storage = adapters.NewDBStorage(DBManager.DB, logger, nil, setupRetrier(conf, logger))
-	} else {
-		storage = adapters.NewMemStorage(logger, nil)
-		if conf.Flushes() {
-			fileKeeper := adapters.NewFileKeeper(conf, logger, done)
-			flusher := periodic.NewFlusher(conf, logger, storage, fileKeeper, done)
-			if *conf.Restore {
-				state := fileKeeper.Restore()
-				storage.Init(state)
-			}
-			if conf.FlushesSync() {
-				storage.SetKeeper(fileKeeper)
-			} else {
-				go flusher.Flush(context.Background())
-			}
+	retrier := setupRetrier(conf, logger)
+	storage = adapters.NewMemStorage(logger, nil)
+	if conf.Flushes() {
+		if DBManager != nil {
+			keeper = adapters.NewDBKeeper(DBManager.DB, logger, done, retrier)
+		} else {
+			keeper = adapters.NewFileKeeper(conf, logger, done, retrier)
+		}
+		flusher := periodic.NewFlusher(conf, logger, storage, keeper, done)
+		if *conf.Restore {
+			state := keeper.Restore()
+			storage.Init(state)
+		}
+		if conf.FlushesSync() {
+			storage.SetKeeper(keeper)
+		} else {
+			go flusher.Flush(context.Background())
 		}
 	}
 

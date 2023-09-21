@@ -113,6 +113,6 @@ func (storage *MemStorage) addSingle(ctx context.Context, update *common.Metrics
 func (storage *MemStorage) flush(ctx context.Context) {
 	if storage.Keeper != nil {
 		snapshot, _ := storage.Snapshot(ctx)
-		storage.Keeper.Flush(snapshot)
+		storage.Keeper.Flush(ctx, snapshot) // todo: Handle errors
 	}
 }

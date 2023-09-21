@@ -12,38 +12,29 @@ import (
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
-type DBStorage struct {
+type DBKeeper struct {
 	DB      *sql.DB
 	Logger  logging.ILogger
-	Keeper  entities.Keeper
 	Retrier utils.Retrier
+	Done    <-chan struct{}
 	Lock    *sync.Mutex
 }
 
-func NewDBStorage(db *sql.DB, logger logging.ILogger, keeper entities.Keeper, retrier utils.Retrier) entities.Storage {
-	return &DBStorage{
-		Lock:    &sync.Mutex{},
+func NewDBKeeper(db *sql.DB, logger logging.ILogger, done chan struct{}, retrier utils.Retrier) entities.Keeper {
+	return &DBKeeper{
 		DB:      db,
 		Logger:  logger,
-		Keeper:  keeper,
 		Retrier: retrier,
+		Done:    done,
+		Lock:    &sync.Mutex{},
 	}
 }
 
-func (storage *DBStorage) SetKeeper(entities.Keeper) {
-	storage.Logger.Errorf("No keeper is necessary for DBStorage")
-}
+func (dbk *DBKeeper) Flush(ctx context.Context, storageSnapshot []*common.Metrics) error {
+	dbk.Logger.Infoln("Starting saving the storage data")
 
-func (storage *DBStorage) Add(ctx context.Context, update *common.Metrics) (*common.Metrics, error) {
-	storage.Lock.Lock()
-	defer storage.Lock.Unlock()
-
-	return storage.addSingle(ctx, nil, update)
-}
-
-func (storage *DBStorage) AddBatch(ctx context.Context, batch []*common.Metrics) error {
-	storage.Lock.Lock()
-	defer storage.Lock.Unlock()
+	dbk.Lock.Lock()
+	defer dbk.Lock.Unlock()
 
 	txOpt := sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
@@ -51,38 +42,33 @@ func (storage *DBStorage) AddBatch(ctx context.Context, batch []*common.Metrics)
 	}
 
 	f := func() (any, error) {
-		return storage.DB.BeginTx(ctx, &txOpt)
+		return dbk.DB.BeginTx(ctx, &txOpt)
 	}
-	txAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
+	txAny, err := dbk.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
 	if err != nil {
-		storage.Logger.Errorf("Failed to open a transaction: %s\n", err.Error())
+		dbk.Logger.Errorf("Failed to open a transaction: %s\n", err.Error())
 	}
 	var tx = txAny.(*sql.Tx)
 	defer tx.Commit()
 
-	for _, metrics := range batch {
-		if _, err := storage.addSingle(ctx, tx, metrics); err != nil {
-			storage.Logger.Errorf("Failed to update a metric from batch: %s\n", err.Error())
+	for _, metrics := range storageSnapshot {
+		if _, err := dbk.addSingle(ctx, tx, metrics); err != nil {
+			dbk.Logger.Errorf("Failed to update a metric from snapshot: %s\n", err.Error())
 			tx.Rollback()
 			return err
 		}
 	}
+	dbk.Logger.Infoln("Saving complete")
 	return nil
 }
 
-func (storage *DBStorage) Get(ctx context.Context, search *common.Metrics) (*common.Metrics, error) {
-	if metrics, err := storage.get(ctx, nil, search); err != nil {
-		return nil, err
-	} else if metrics == nil {
-		return nil, common.ErrUnknownMetric
-	} else {
-		return metrics, nil
-	}
-}
+func (dbk *DBKeeper) Restore() []*common.Metrics {
+	dbk.Logger.Infoln("Restoring the storage data")
+	var result []*common.Metrics
+	ctx := context.Background()
 
-func (storage *DBStorage) GetAll(ctx context.Context) (map[string]*common.Metrics, error) {
 	f := func() (any, error) {
-		rows, err := storage.DB.QueryContext(ctx, "SELECT * FROM metrics")
+		rows, err := dbk.DB.QueryContext(ctx, "SELECT * FROM metrics")
 		if err != nil {
 			return nil, err
 		}
@@ -92,72 +78,59 @@ func (storage *DBStorage) GetAll(ctx context.Context) (map[string]*common.Metric
 		}
 		return rows, nil
 	}
-	rowsAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
+	rowsAny, err := dbk.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
 	if err != nil {
-		storage.Logger.Errorf("Failed to fetch all table: %s\n", err.Error())
-		return nil, err
+		dbk.Logger.Errorf("Failed to fetch all table: %s\n", err.Error())
+		panic(err)
 	}
 
 	var rows = rowsAny.(*sql.Rows)
 	defer rows.Close()
-	var result = make(map[string]*common.Metrics)
 	for rows.Next() {
 		var metrics common.Metrics
 		if err = scanSingleMetric(rows, &metrics); err != nil {
-			storage.Logger.Errorf("Failed to scan metric: %s\n", err.Error())
-			return nil, err
+			dbk.Logger.Errorf("Failed to scan metric: %s\n", err.Error())
+			panic(err)
 		}
-		result[metrics.ID] = &metrics
+		result = append(result, &metrics)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		panic(err)
 	}
-	return result, nil
+	dbk.Logger.Infoln("Success")
+	return result
 }
 
-func (storage *DBStorage) Snapshot(context.Context) ([]*common.Metrics, error) {
-	storage.Logger.Warningf("No snapshot can be taken from DBStorage")
-	return nil, nil // TODO: return error?
-}
+func (dbk *DBKeeper) addSingle(ctx context.Context, tx *sql.Tx, update *common.Metrics) (*common.Metrics, error) {
+	dbk.Logger.Infof("Updating a metric %s %s\n", update.ID, update.MType)
 
-func (storage *DBStorage) Init([]*common.Metrics) {
-	storage.Logger.Warningf("No init is necessary for DBStorage")
-}
-
-func (storage *DBStorage) flush(context.Context) {
-	storage.Logger.Warningf("No flush is necessary for DBStorage")
-}
-
-func (storage *DBStorage) addSingle(ctx context.Context, tx *sql.Tx, update *common.Metrics) (*common.Metrics, error) {
-	storage.Logger.Infof("Updating a metric %s %s\n", update.ID, update.MType)
-
-	metrics, err := storage.get(ctx, tx, update)
+	metrics, err := dbk.get(ctx, tx, update)
 	if err != nil {
 		return nil, err
 	}
 
 	if metrics == nil {
-		storage.Logger.Infoln("Creating a new metric")
-		if err := storage.create(ctx, tx, update); err != nil {
+		dbk.Logger.Infoln("Creating a new metric")
+		if err := dbk.create(ctx, tx, update); err != nil {
 			return nil, err
 		}
 		return update, nil
 	}
 
-	if result, err := storage.update(ctx, tx, update); err != nil {
+	if result, err := dbk.update(ctx, tx, update); err != nil {
 		return nil, err
 	} else {
 		return result, nil
 	}
 }
 
-func (storage *DBStorage) get(ctx context.Context, tx *sql.Tx, search *common.Metrics) (*common.Metrics, error) {
+func (dbk *DBKeeper) get(ctx context.Context, tx *sql.Tx, search *common.Metrics) (*common.Metrics, error) {
 	query := "SELECT * FROM metrics WHERE id = $1 AND mtype = $2"
 	var row *sql.Row
 	if tx != nil {
 		row = tx.QueryRowContext(ctx, query, search.ID, search.MType)
 	} else {
-		stmt, err := storage.prepareStatement(ctx, query)
+		stmt, err := dbk.prepareStatement(ctx, query)
 		if err != nil {
 			return nil, err
 		}
@@ -167,17 +140,17 @@ func (storage *DBStorage) get(ctx context.Context, tx *sql.Tx, search *common.Me
 	var result common.Metrics
 	if err := scanMetric(row, &result); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			storage.Logger.Infof("No row found with ID %s and type %s\n", search.ID, search.MType)
+			dbk.Logger.Infof("No row found with ID %s and type %s\n", search.ID, search.MType)
 			return nil, nil
 		} else {
-			storage.Logger.Errorf("Failed to find metric %s %s\n", search.ID, search.MType, err.Error())
+			dbk.Logger.Errorf("Failed to find metric %s %s\n", search.ID, search.MType, err.Error())
 			return nil, err
 		}
 	}
 	return &result, nil
 }
 
-func (storage *DBStorage) create(ctx context.Context, tx *sql.Tx, create *common.Metrics) error {
+func (dbk *DBKeeper) create(ctx context.Context, tx *sql.Tx, create *common.Metrics) error {
 	query := `
 		INSERT INTO metrics(id, mtype, delta, val)
 		VALUES ($1, $2, $3, $4)
@@ -189,26 +162,26 @@ func (storage *DBStorage) create(ctx context.Context, tx *sql.Tx, create *common
 	var err error
 	if tx == nil {
 		f := func() (any, error) {
-			return storage.DB.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value)
+			return dbk.DB.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value)
 		}
-		_, err = storage.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
+		_, err = dbk.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
 	} else {
 		_, err = tx.ExecContext(ctx, query, create.ID, create.MType, create.Delta, create.Value)
 	}
 	if err != nil {
-		storage.Logger.Errorf("Failed to create a new metric %s\n", err.Error())
+		dbk.Logger.Errorf("Failed to create a new metric %s\n", err.Error())
 		return err
 	}
-	storage.Logger.Infof("Created: %s %s\n", create.ID, create.MType)
+	dbk.Logger.Infof("Created: %s %s\n", create.ID, create.MType)
 	return nil
 }
 
-func (storage *DBStorage) update(ctx context.Context, tx *sql.Tx, update *common.Metrics) (*common.Metrics, error) {
+func (dbk *DBKeeper) update(ctx context.Context, tx *sql.Tx, update *common.Metrics) (*common.Metrics, error) {
 	var row *sql.Row
 	if update.MType == common.TypeCounter {
 		query := "UPDATE metrics SET delta = delta + $1 WHERE id = $2 RETURNING *"
 		if tx == nil {
-			stmt, err := storage.prepareStatement(ctx, query)
+			stmt, err := dbk.prepareStatement(ctx, query)
 			if err != nil {
 				return nil, err
 			}
@@ -220,7 +193,7 @@ func (storage *DBStorage) update(ctx context.Context, tx *sql.Tx, update *common
 	} else {
 		query := "UPDATE metrics SET val = $1 WHERE id = $2 RETURNING *"
 		if tx == nil {
-			stmt, err := storage.prepareStatement(ctx, query)
+			stmt, err := dbk.prepareStatement(ctx, query)
 			if err != nil {
 				return nil, err
 			}
@@ -233,20 +206,20 @@ func (storage *DBStorage) update(ctx context.Context, tx *sql.Tx, update *common
 
 	var result common.Metrics
 	if err := scanMetric(row, &result); err != nil {
-		storage.Logger.Errorf("Failed to update metric %s %s\n", update.ID, err.Error())
+		dbk.Logger.Errorf("Failed to update metric %s %s\n", update.ID, err.Error())
 		return nil, err
 	}
-	storage.Logger.Infof("Updated: %s %s\n", update.ID, update.MType)
+	dbk.Logger.Infof("Updated: %s %s\n", update.ID, update.MType)
 	return &result, nil
 }
 
-func (storage *DBStorage) prepareStatement(ctx context.Context, query string) (*sql.Stmt, error) {
+func (dbk *DBKeeper) prepareStatement(ctx context.Context, query string) (*sql.Stmt, error) {
 	f := func() (any, error) {
-		return storage.DB.PrepareContext(ctx, query)
+		return dbk.DB.PrepareContext(ctx, query)
 	}
-	stmtAny, err := storage.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
+	stmtAny, err := dbk.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
 	if err != nil {
-		storage.Logger.Errorf("Failed to open a statement: %s\n", err.Error())
+		dbk.Logger.Errorf("Failed to open a statement: %s\n", err.Error())
 		return nil, err
 	}
 	return stmtAny.(*sql.Stmt), nil

@@ -9,6 +9,8 @@ import (
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
+// todo: get rid of
+
 type Flusher struct {
 	Storage entities.Storage
 	Keeper  entities.Keeper
@@ -68,7 +70,7 @@ func (pf *Flusher) flush(ctx context.Context, mustSucceed bool) {
 		}
 		return
 	}
-	if err := pf.Keeper.Flush(data); err != nil {
+	if err := pf.Keeper.Flush(ctx, data); err != nil {
 		pf.Logger.Errorf("Failed to flush data: %s\n", err.Error())
 		if mustSucceed {
 			panic(err)
