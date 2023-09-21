@@ -14,10 +14,10 @@ import (
 
 type DBStorage struct {
 	DB      *sql.DB
-	Lock    *sync.Mutex
 	Logger  logging.ILogger
 	Keeper  entities.Keeper
 	Retrier utils.Retrier
+	Lock    *sync.Mutex
 }
 
 func NewDBStorage(db *sql.DB, logger logging.ILogger, keeper entities.Keeper, retrier utils.Retrier) entities.Storage {
