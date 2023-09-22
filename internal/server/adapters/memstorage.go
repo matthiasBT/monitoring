@@ -3,6 +3,7 @@ package adapters
 import (
 	"context"
 	"sync"
+	"time"
 
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
@@ -17,16 +18,25 @@ type State struct {
 
 type MemStorage struct {
 	State
+	Done   <-chan struct{}
+	Tick   <-chan time.Time
 	Logger logging.ILogger
 	Keeper entities.Keeper
 }
 
-func NewMemStorage(logger logging.ILogger, keeper entities.Keeper) entities.Storage {
+func NewMemStorage(
+	done <-chan struct{},
+	tick <-chan time.Time,
+	logger logging.ILogger,
+	keeper entities.Keeper,
+) entities.Storage {
 	return &MemStorage{
 		State: State{
 			Metrics: make(map[string]*common.Metrics),
 			Lock:    &sync.Mutex{},
 		},
+		Done:   done,
+		Tick:   tick,
 		Logger: logger,
 		Keeper: keeper,
 	}
@@ -90,6 +100,25 @@ func (storage *MemStorage) Ping(ctx context.Context) error {
 		return storage.Keeper.Ping(ctx)
 	}
 	return nil
+}
+
+func (storage *MemStorage) FlushPeriodic(ctx context.Context) {
+	storage.Logger.Infoln("Launching the FlushPeriodic job")
+	for {
+		select {
+		case <-storage.Done:
+			storage.Logger.Infoln("Stopping the FlushPeriodic job")
+			if err := storage.flush(ctx); err != nil {
+				panic(err)
+			}
+			return
+		case tick := <-storage.Tick:
+			storage.Logger.Infof("The FlushPeriodic job is ticking at %v\n", tick)
+			if err := storage.flush(ctx); err != nil {
+				storage.Logger.Errorf("Failed to flush data: %s\n", err.Error())
+			}
+		}
+	}
 }
 
 func (storage *MemStorage) addSingle(ctx context.Context, update *common.Metrics) (*common.Metrics, error) {

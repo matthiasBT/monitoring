@@ -40,11 +40,10 @@ type DBKeeper struct {
 	DB      *sql.DB
 	Logger  logging.ILogger
 	Retrier utils.Retrier
-	Done    <-chan struct{} // todo: use for periodic flusher
 	Lock    *sync.Mutex
 }
 
-func NewDBKeeper(conf *server.Config, logger logging.ILogger, done chan struct{}, retrier utils.Retrier) entities.Keeper {
+func NewDBKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Retrier) entities.Keeper {
 	logger.Debugf("Opening the database: %s\n", conf.DatabaseDSN)
 	db, err := sql.Open("pgx", conf.DatabaseDSN)
 	if err != nil {
@@ -52,7 +51,7 @@ func NewDBKeeper(conf *server.Config, logger logging.ILogger, done chan struct{}
 		panic(err)
 	}
 
-	keeper := DBKeeper{DB: db, Logger: logger, Retrier: retrier, Done: done, Lock: &sync.Mutex{}}
+	keeper := DBKeeper{DB: db, Logger: logger, Retrier: retrier, Lock: &sync.Mutex{}}
 	if err := keeper.prepare(); err != nil {
 		panic(err)
 	}

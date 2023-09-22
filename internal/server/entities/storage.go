@@ -15,4 +15,5 @@ type Storage interface {
 	Init([]*entities.Metrics)
 	SetKeeper(keeper Keeper)
 	Ping(ctx context.Context) error
+	FlushPeriodic(ctx context.Context)
 }

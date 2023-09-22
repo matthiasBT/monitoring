@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/matthiasBT/monitoring/cmd/server/periodic"
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 
@@ -53,6 +52,15 @@ func setupRetrier(conf *server.Config, logger logging.ILogger) utils.Retrier {
 	}
 }
 
+func setupTicker(conf *server.Config) <-chan time.Time {
+	if conf.FlushesSync() {
+		return make(chan time.Time) // will never be used
+	} else {
+		ticker := time.NewTicker(time.Duration(*conf.StoreInterval) * time.Second)
+		return ticker.C
+	}
+}
+
 func main() {
 	logger := logging.SetupLogger()
 	conf, err := server.InitConfig()
@@ -60,14 +68,16 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	var storage entities.Storage
-	var keeper entities.Keeper
 	done := make(chan struct{}, 1)
+	tickerChan := setupTicker(conf)
 	retrier := setupRetrier(conf, logger)
-	storage = adapters.NewMemStorage(logger, nil)
+
+	storage := adapters.NewMemStorage(done, tickerChan, logger, nil)
+	var keeper entities.Keeper
+
 	if conf.Flushes() {
 		if conf.DatabaseDSN != "" {
-			keeper = adapters.NewDBKeeper(conf, logger, done, retrier)
+			keeper = adapters.NewDBKeeper(conf, logger, retrier)
 		} else {
 			keeper = adapters.NewFileKeeper(conf, logger, retrier)
 		}
@@ -79,8 +89,7 @@ func main() {
 		if conf.FlushesSync() {
 			storage.SetKeeper(keeper)
 		} else {
-			flusher := periodic.NewFlusher(conf, logger, storage, keeper, done)
-			go flusher.Flush(context.Background())
+			go storage.FlushPeriodic(context.Background())
 		}
 	}
 
