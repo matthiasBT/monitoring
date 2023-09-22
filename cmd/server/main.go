@@ -86,9 +86,8 @@ func main() {
 			state := keeper.Restore()
 			storage.Init(state)
 		}
-		if conf.FlushesSync() {
-			storage.SetKeeper(keeper)
-		} else {
+		storage.SetKeeper(keeper)
+		if !conf.FlushesSync() {
 			go storage.FlushPeriodic(context.Background())
 		}
 	}
