@@ -14,4 +14,5 @@ type Storage interface {
 	Snapshot(ctx context.Context) ([]*entities.Metrics, error)
 	Init([]*entities.Metrics)
 	SetKeeper(keeper Keeper)
+	Ping(ctx context.Context) error
 }

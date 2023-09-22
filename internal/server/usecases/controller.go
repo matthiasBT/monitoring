@@ -3,22 +3,19 @@ package usecases
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
-	"github.com/matthiasBT/monitoring/internal/server/adapters"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
 type BaseController struct {
 	Logger       logging.ILogger
 	Stor         entities.Storage
-	DBManager    *adapters.DBManager
 	TemplatePath string
 }
 
-func NewBaseController(logger logging.ILogger, stor entities.Storage, DBManager *adapters.DBManager, templatePath string) *BaseController {
+func NewBaseController(logger logging.ILogger, stor entities.Storage, templatePath string) *BaseController {
 	return &BaseController{
 		Logger:       logger,
 		Stor:         stor,
-		DBManager:    DBManager,
 		TemplatePath: templatePath,
 	}
 }

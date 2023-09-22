@@ -60,28 +60,18 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	var DBManager *adapters.DBManager
-	if conf.DatabaseDSN != "" {
-		DBManager, err = adapters.NewDBManager(conf.DatabaseDSN, logger)
-		if err != nil {
-			logger.Errorf("Failed to init database connection: %s\n", err.Error())
-			panic(err)
-		}
-		defer DBManager.Shutdown()
-	}
-
 	var storage entities.Storage
 	var keeper entities.Keeper
 	done := make(chan struct{}, 1)
 	retrier := setupRetrier(conf, logger)
 	storage = adapters.NewMemStorage(logger, nil)
 	if conf.Flushes() {
-		if DBManager != nil {
-			keeper = adapters.NewDBKeeper(DBManager.DB, logger, done, retrier)
+		if conf.DatabaseDSN != "" {
+			keeper = adapters.NewDBKeeper(conf, logger, done, retrier)
 		} else {
-			keeper = adapters.NewFileKeeper(conf, logger, done, retrier)
+			keeper = adapters.NewFileKeeper(conf, logger, retrier)
 		}
-		flusher := periodic.NewFlusher(conf, logger, storage, keeper, done)
+		defer keeper.Shutdown()
 		if *conf.Restore {
 			state := keeper.Restore()
 			storage.Init(state)
@@ -89,11 +79,12 @@ func main() {
 		if conf.FlushesSync() {
 			storage.SetKeeper(keeper)
 		} else {
+			flusher := periodic.NewFlusher(conf, logger, storage, keeper, done)
 			go flusher.Flush(context.Background())
 		}
 	}
 
-	controller := usecases.NewBaseController(logger, storage, DBManager, conf.TemplatePath)
+	controller := usecases.NewBaseController(logger, storage, conf.TemplatePath)
 	r := setupServer(logger, controller)
 	srv := http.Server{Addr: conf.Addr, Handler: r}
 	go func() {

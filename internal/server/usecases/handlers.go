@@ -118,12 +118,7 @@ func (c *BaseController) massUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *BaseController) ping(w http.ResponseWriter, r *http.Request) {
-	if c.DBManager == nil {
-		c.Logger.Errorf("Failed to ping the databases: no DB manager\n")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("No database was configured"))
-	}
-	if err := c.DBManager.Ping(r.Context()); err != nil {
+	if err := c.Stor.Ping(r.Context()); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 	}

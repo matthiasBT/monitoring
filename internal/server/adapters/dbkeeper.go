@@ -6,28 +6,57 @@ import (
 	"errors"
 	"sync"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
+const (
+	createType = `
+		DO $$ BEGIN
+			CREATE TYPE metric_type AS ENUM('gauge', 'counter');
+		EXCEPTION
+			WHEN duplicate_object THEN null;
+		END $$;
+	`
+	createTable = `
+		CREATE TABLE IF NOT EXISTS metrics (
+			id text primary key,
+			mtype metric_type,
+			delta bigint,
+			val double precision
+		)
+	`
+	createIndex = `
+		CREATE INDEX IF NOT EXISTS search_idx ON metrics
+		USING btree(id, mtype)
+	`
+)
+
 type DBKeeper struct {
 	DB      *sql.DB
 	Logger  logging.ILogger
 	Retrier utils.Retrier
-	Done    <-chan struct{}
+	Done    <-chan struct{} // todo: use for periodic flusher
 	Lock    *sync.Mutex
 }
 
-func NewDBKeeper(db *sql.DB, logger logging.ILogger, done chan struct{}, retrier utils.Retrier) entities.Keeper {
-	return &DBKeeper{
-		DB:      db,
-		Logger:  logger,
-		Retrier: retrier,
-		Done:    done,
-		Lock:    &sync.Mutex{},
+func NewDBKeeper(conf *server.Config, logger logging.ILogger, done chan struct{}, retrier utils.Retrier) entities.Keeper {
+	logger.Debugf("Opening the database: %s\n", conf.DatabaseDSN)
+	db, err := sql.Open("pgx", conf.DatabaseDSN)
+	if err != nil {
+		logger.Errorf("Failed to open the database: %s\n", err.Error())
+		panic(err)
 	}
+
+	keeper := DBKeeper{DB: db, Logger: logger, Retrier: retrier, Done: done, Lock: &sync.Mutex{}}
+	if err := keeper.prepare(); err != nil {
+		panic(err)
+	}
+	return &keeper
 }
 
 func (dbk *DBKeeper) Flush(ctx context.Context, storageSnapshot []*common.Metrics) error {
@@ -231,4 +260,34 @@ func scanMetric(row *sql.Row, result *common.Metrics) error {
 
 func scanSingleMetric(rows *sql.Rows, result *common.Metrics) error {
 	return rows.Scan(&result.ID, &result.MType, &result.Delta, &result.Value)
+}
+
+func (dbk *DBKeeper) prepare() error {
+	dbk.Logger.Infoln("Creating database objects if necessary")
+	for _, query := range []string{createType, createTable, createIndex} {
+		f := func() (any, error) {
+			return dbk.DB.Exec(query)
+		}
+		if _, err := dbk.Retrier.RetryChecked(context.Background(), f, utils.CheckConnectionError); err != nil {
+			dbk.Logger.Errorf("Failed to execute query: %s\n", err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
+func (dbk *DBKeeper) Shutdown() {
+	dbk.Logger.Infoln("Shutting down the database")
+	if err := dbk.DB.Close(); err != nil {
+		dbk.Logger.Errorf("Failed to shutdown the database: %s\n", err.Error())
+		panic(err)
+	}
+}
+
+func (dbk *DBKeeper) Ping(ctx context.Context) error {
+	if err := dbk.DB.PingContext(ctx); err != nil {
+		dbk.Logger.Errorf("Database ping failed: %s\n", err.Error())
+		return err
+	}
+	return nil
 }
