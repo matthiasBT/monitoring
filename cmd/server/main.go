@@ -52,6 +52,17 @@ func setupRetrier(conf *server.Config, logger logging.ILogger) utils.Retrier {
 	}
 }
 
+func setupKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Retrier) entities.Keeper {
+	if conf.Flushes() {
+		if conf.DatabaseDSN != "" {
+			return adapters.NewDBKeeper(conf, logger, retrier)
+		} else {
+			return adapters.NewFileKeeper(conf, logger, retrier)
+		}
+	}
+	return nil
+}
+
 func setupTicker(conf *server.Config) <-chan time.Time {
 	if conf.FlushesSync() {
 		return make(chan time.Time) // will never be used
@@ -67,27 +78,22 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	logger.Infof("Config: %s %s %s %t", conf.Addr, conf.FileStoragePath, conf.DatabaseDSN, *conf.Restore)
 
 	done := make(chan struct{}, 1)
 	tickerChan := setupTicker(conf)
 	retrier := setupRetrier(conf, logger)
 
-	storage := adapters.NewMemStorage(done, tickerChan, logger, nil)
-	var keeper entities.Keeper
+	keeper := setupKeeper(conf, logger, retrier)
+	if keeper != nil {
+		defer keeper.Shutdown()
+	}
+	storage := adapters.NewMemStorage(done, tickerChan, logger, keeper)
 
 	if conf.Flushes() {
-		if conf.DatabaseDSN != "" {
-			keeper = adapters.NewDBKeeper(conf, logger, retrier)
-		} else {
-			keeper = adapters.NewFileKeeper(conf, logger, retrier)
-		}
-		defer keeper.Shutdown()
 		if *conf.Restore {
 			state := keeper.Restore()
 			storage.Init(state)
 		}
-		storage.SetKeeper(keeper)
 		if !conf.FlushesSync() {
 			go storage.FlushPeriodic(context.Background())
 		}

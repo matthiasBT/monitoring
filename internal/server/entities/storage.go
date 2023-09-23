@@ -13,7 +13,6 @@ type Storage interface {
 	AddBatch(ctx context.Context, batch []*entities.Metrics) error
 	Snapshot(ctx context.Context) ([]*entities.Metrics, error)
 	Init([]*entities.Metrics)
-	SetKeeper(keeper Keeper)
 	Ping(ctx context.Context) error
 	FlushPeriodic(ctx context.Context)
 }

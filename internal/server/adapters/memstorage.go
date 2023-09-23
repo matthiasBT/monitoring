@@ -42,10 +42,6 @@ func NewMemStorage(
 	}
 }
 
-func (storage *MemStorage) SetKeeper(keeper entities.Keeper) {
-	storage.Keeper = keeper
-}
-
 func (storage *MemStorage) Add(ctx context.Context, update *common.Metrics) (*common.Metrics, error) {
 	storage.Lock.Lock()
 	defer storage.Lock.Unlock()
