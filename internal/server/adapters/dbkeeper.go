@@ -10,30 +10,9 @@ import (
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/infra/migrations"
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
-)
-
-const (
-	createType = `
-		DO $$ BEGIN
-			CREATE TYPE metric_type AS ENUM('gauge', 'counter');
-		EXCEPTION
-			WHEN duplicate_object THEN null;
-		END $$;
-	`
-	createTable = `
-		CREATE TABLE IF NOT EXISTS metrics (
-			id text primary key,
-			mtype metric_type,
-			delta bigint,
-			val double precision
-		)
-	`
-	createIndex = `
-		CREATE INDEX IF NOT EXISTS search_idx ON metrics
-		USING btree(id, mtype)
-	`
 )
 
 type DBKeeper struct {
@@ -52,9 +31,10 @@ func NewDBKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Retr
 	}
 
 	keeper := DBKeeper{DB: db, Logger: logger, Retrier: retrier, Lock: &sync.Mutex{}}
-	if err := keeper.prepare(); err != nil {
+	if err := keeper.Ping(context.Background()); err != nil {
 		panic(err)
 	}
+	migrations.Migrate(db)
 	return &keeper
 }
 
@@ -259,20 +239,6 @@ func scanMetric(row *sql.Row, result *common.Metrics) error {
 
 func scanSingleMetric(rows *sql.Rows, result *common.Metrics) error {
 	return rows.Scan(&result.ID, &result.MType, &result.Delta, &result.Value)
-}
-
-func (dbk *DBKeeper) prepare() error {
-	dbk.Logger.Infoln("Creating database objects if necessary")
-	for _, query := range []string{createType, createTable, createIndex} {
-		f := func() (any, error) {
-			return dbk.DB.Exec(query)
-		}
-		if _, err := dbk.Retrier.RetryChecked(context.Background(), f, utils.CheckConnectionError); err != nil {
-			dbk.Logger.Errorf("Failed to execute query: %s\n", err.Error())
-			return err
-		}
-	}
-	return nil
 }
 
 func (dbk *DBKeeper) Shutdown() {

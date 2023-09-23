@@ -67,6 +67,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	logger.Infof("Config: %s %s %s %t", conf.Addr, conf.FileStoragePath, conf.DatabaseDSN, *conf.Restore)
 
 	done := make(chan struct{}, 1)
 	tickerChan := setupTicker(conf)
