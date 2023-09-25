@@ -46,6 +46,7 @@ func main() {
 			UpdateURL:  conf.UpdateURL,
 			Retrier:    retrier,
 			Lock:       &sync.Mutex{},
+			HMACKey:    []byte(conf.HMACKey),
 		},
 	}
 	poller := poll.Poller{
