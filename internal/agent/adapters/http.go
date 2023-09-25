@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -25,6 +26,8 @@ type HTTPReportAdapter struct {
 	Lock       *sync.Mutex
 	HMACKey    []byte
 }
+
+var ErrResponseNotOK = errors.New("response not OK")
 
 func (r *HTTPReportAdapter) Report(metrics *common.Metrics) error {
 	r.Lock.Lock()
@@ -67,6 +70,10 @@ func (r *HTTPReportAdapter) report(payload *[]byte) error {
 		if err != nil {
 			r.Logger.Errorf("Request failed: %v\n", err.Error())
 			return nil, err
+		}
+		if resp.StatusCode != http.StatusOK {
+			r.Logger.Errorf("Request failed with code: %d\n", resp.StatusCode)
+			return nil, ErrResponseNotOK
 		}
 		defer resp.Body.Close()
 		body, err := io.ReadAll(resp.Body)

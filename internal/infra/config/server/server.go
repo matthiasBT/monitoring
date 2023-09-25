@@ -25,6 +25,7 @@ type Config struct {
 	FileStoragePath      string `env:"FILE_STORAGE_PATH"`
 	Restore              *bool  `env:"RESTORE"`
 	DatabaseDSN          string `env:"DATABASE_DSN"`
+	HMACKey              string `env:"KEY"`
 	RetryAttempts        int
 	RetryIntervalInitial time.Duration
 	RetryIntervalBackoff time.Duration
@@ -52,7 +53,7 @@ func InitConfig() (*Config, error) {
 
 	flagRestore := flag.Bool("r", DefRestore, "Restore init state from the file (see -f flag)")
 	flagStoreInterval := flag.Uint("i", DefStoreInterval, "How often to store data in the file")
-
+	hmacKey := flag.String("k", "", "HMAC key for integrity checks")
 	flag.Parse()
 
 	if conf.Addr == "" {
@@ -69,6 +70,9 @@ func InitConfig() (*Config, error) {
 	}
 	if conf.StoreInterval == nil {
 		conf.StoreInterval = flagStoreInterval
+	}
+	if conf.HMACKey == "" {
+		conf.HMACKey = *hmacKey
 	}
 	return conf, nil
 }
