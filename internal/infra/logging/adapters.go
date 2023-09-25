@@ -9,6 +9,6 @@ import (
 func SetupLogger() *logrus.Logger {
 	logger := logrus.New()
 	logger.SetOutput(os.Stdout)
-	logger.SetLevel(logrus.InfoLevel)
+	logger.SetLevel(logrus.DebugLevel)
 	return logger
 }

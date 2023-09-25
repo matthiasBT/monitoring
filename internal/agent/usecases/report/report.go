@@ -37,6 +37,7 @@ func (r *Reporter) report() {
 	// saving the address of the current snapshot, so it doesn't get overwritten
 	snapshot := r.Data.CurrSnapshot
 	r.Logger.Infof("Reporting snapshot, memory address: %v\n", &snapshot)
+	var batch = make([]*common.Metrics, 0, len(snapshot.Gauges)+len(snapshot.Gauges))
 	for name, val := range snapshot.Gauges {
 		metric := common.Metrics{
 			ID:    name,
@@ -44,7 +45,7 @@ func (r *Reporter) report() {
 			Delta: nil,
 			Value: &val,
 		}
-		r.send(metric)
+		batch = append(batch, &metric)
 	}
 	for name, val := range snapshot.Counters {
 		metric := common.Metrics{
@@ -53,9 +54,16 @@ func (r *Reporter) report() {
 			Delta: &val,
 			Value: nil,
 		}
-		r.send(metric)
+		batch = append(batch, &metric)
 	}
-	r.Logger.Infoln("All metrics have been reported")
+	if len(batch) == 0 {
+		r.Logger.Infoln("Nothing to report yet")
+		return
+	}
+	r.Logger.Infoln("All metrics have been prepared for report")
+	if err := r.SendAdapter.ReportBatch(batch); err != nil {
+		r.Logger.Errorf("Failed to report a batch. Error: %v\n", err.Error())
+	}
 }
 
 func (r *Reporter) send(metric common.Metrics) {

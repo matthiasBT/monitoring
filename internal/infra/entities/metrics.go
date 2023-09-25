@@ -49,6 +49,9 @@ func (m Metrics) ValueAsString() string {
 	var val string
 	if m.MType == TypeGauge {
 		val = strconv.FormatFloat(*m.Value, 'f', -1, 64)
+		if !strings.Contains(val, ".") {
+			val += "."
+		}
 	} else if m.MType == TypeCounter {
 		val = fmt.Sprintf("%d", *m.Delta)
 	} else {

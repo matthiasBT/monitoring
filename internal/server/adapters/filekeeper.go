@@ -2,32 +2,36 @@ package adapters
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
+	"os"
+	"sync"
+
+	"github.com/matthiasBT/monitoring/internal/infra/utils"
+
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
-	"os"
-	"sync"
 )
 
 type FileKeeper struct {
-	Logger logging.ILogger
-	Path   string
-	Done   <-chan struct{}
-	Lock   *sync.Mutex
+	Logger  logging.ILogger
+	Path    string
+	Retrier utils.Retrier
+	Lock    *sync.Mutex
 }
 
-func NewFileKeeper(conf *server.Config, logger logging.ILogger, done chan struct{}) entities.Keeper {
+func NewFileKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Retrier) entities.Keeper {
 	return &FileKeeper{
-		Logger: logger,
-		Path:   conf.FileStoragePath,
-		Done:   done,
-		Lock:   &sync.Mutex{},
+		Logger:  logger,
+		Path:    conf.FileStoragePath,
+		Retrier: retrier,
+		Lock:    &sync.Mutex{},
 	}
 }
 
-func (fs *FileKeeper) Flush(storageSnapshot []*common.Metrics) error {
+func (fs *FileKeeper) Flush(ctx context.Context, storageSnapshot []*common.Metrics) error {
 	fs.Logger.Infoln("Starting saving the storage data")
 
 	fs.Lock.Lock()
@@ -83,4 +87,12 @@ func (fs *FileKeeper) Restore() []*common.Metrics {
 	}
 	fs.Logger.Infoln("Success")
 	return result
+}
+
+func (fs *FileKeeper) Ping(context.Context) error {
+	return nil
+}
+
+func (fs *FileKeeper) Shutdown() {
+	fs.Logger.Infoln("No shutdown action needed")
 }

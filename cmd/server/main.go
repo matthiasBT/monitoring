@@ -3,13 +3,15 @@ package main
 import (
 	"context"
 	"errors"
-	"github.com/matthiasBT/monitoring/cmd/server/periodic"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/matthiasBT/monitoring/internal/infra/utils"
+	"github.com/matthiasBT/monitoring/internal/server/entities"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/matthiasBT/monitoring/internal/infra/compression"
@@ -37,7 +39,36 @@ func gracefulShutdown(srv *http.Server, done chan struct{}, logger logging.ILogg
 	time.Sleep(2 * time.Second)
 
 	if err := srv.Shutdown(context.Background()); err != nil {
-		log.Fatalf("Server shutdown failed: %v\n", err)
+		log.Fatalf("Server shutdown failed: %v\n", err.Error())
+	}
+}
+
+func setupRetrier(conf *server.Config, logger logging.ILogger) utils.Retrier {
+	return utils.Retrier{
+		Attempts:         conf.RetryAttempts,
+		IntervalFirst:    conf.RetryIntervalInitial,
+		IntervalIncrease: conf.RetryIntervalBackoff,
+		Logger:           logger,
+	}
+}
+
+func setupKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Retrier) entities.Keeper {
+	if conf.Flushes() {
+		if conf.DatabaseDSN != "" {
+			return adapters.NewDBKeeper(conf, logger, retrier)
+		} else {
+			return adapters.NewFileKeeper(conf, logger, retrier)
+		}
+	}
+	return nil
+}
+
+func setupTicker(conf *server.Config) <-chan time.Time {
+	if conf.FlushesSync() {
+		return make(chan time.Time) // will never be used
+	} else {
+		ticker := time.NewTicker(time.Duration(*conf.StoreInterval) * time.Second)
+		return ticker.C
 	}
 }
 
@@ -48,20 +79,23 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	storage := adapters.NewMemStorage(logger, nil)
-
 	done := make(chan struct{}, 1)
+	tickerChan := setupTicker(conf)
+	retrier := setupRetrier(conf, logger)
+
+	keeper := setupKeeper(conf, logger, retrier)
+	if keeper != nil {
+		defer keeper.Shutdown()
+	}
+	storage := adapters.NewMemStorage(done, tickerChan, logger, keeper)
+
 	if conf.Flushes() {
-		fileKeeper := adapters.NewFileKeeper(conf, logger, done)
-		flusher := periodic.NewFlusher(conf, logger, storage, fileKeeper, done)
 		if *conf.Restore {
-			state := fileKeeper.Restore()
+			state := keeper.Restore()
 			storage.Init(state)
 		}
-		if conf.FlushesSync() {
-			storage.SetKeeper(fileKeeper)
-		} else {
-			go flusher.Flush()
+		if !conf.FlushesSync() {
+			go storage.FlushPeriodic(context.Background())
 		}
 	}
 
