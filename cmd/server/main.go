@@ -25,10 +25,9 @@ import (
 func setupServer(logger logging.ILogger, controller *usecases.BaseController, hmacKey string) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(logging.Middleware(logger))
-	r.Use(compression.MiddlewareReader)
-	r.Use(compression.MiddlewareWriter)
+	r.Use(compression.MiddlewareReader, compression.MiddlewareWriter)
 	if hmacKey != "" {
-		r.Use(hashcheck.Middleware(hmacKey))
+		r.Use(hashcheck.MiddlewareReader(hmacKey), hashcheck.MiddlewareWriter(hmacKey))
 	}
 	r.Mount("/", controller.Route())
 	return r

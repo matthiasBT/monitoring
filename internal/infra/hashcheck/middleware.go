@@ -9,7 +9,30 @@ import (
 	"net/http"
 )
 
-func Middleware(key string) func(next http.Handler) http.Handler {
+type responseMetadata struct {
+	data []byte
+}
+
+type extendedWriter struct {
+	http.ResponseWriter
+	response *responseMetadata
+	hmacKey  string
+}
+
+func (w *extendedWriter) Write(b []byte) (int, error) {
+	w.response.data = append(w.response.data, b...)
+	serverHash, err := hashData([]byte(w.hmacKey), &w.response.data) // "{"id":"SD11","type":"counter","delta":1}"
+	if err != nil {
+		w.Write([]byte(err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		return len(err.Error()), err
+	}
+	w.Header().Set("HashSHA256", serverHash)
+	size, err := w.ResponseWriter.Write(b)
+	return size, err
+}
+
+func MiddlewareReader(key string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		checkHashFn := func(w http.ResponseWriter, r *http.Request) {
 			var clientHash string
@@ -39,6 +62,22 @@ func Middleware(key string) func(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		}
 		return http.HandlerFunc(checkHashFn)
+	}
+}
+
+func MiddlewareWriter(key string) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		addHashFn := func(w http.ResponseWriter, r *http.Request) {
+			extWriter := &extendedWriter{
+				ResponseWriter: w,
+				response: &responseMetadata{
+					data: []byte{},
+				},
+				hmacKey: key,
+			}
+			next.ServeHTTP(extWriter, r)
+		}
+		return http.HandlerFunc(addHashFn)
 	}
 }
 
