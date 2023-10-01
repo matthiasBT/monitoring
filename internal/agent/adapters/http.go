@@ -23,11 +23,42 @@ type HTTPReportAdapter struct {
 	ServerAddr string
 	UpdateURL  string
 	Retrier    utils.Retrier
-	Lock       *sync.Mutex
 	HMACKey    []byte
+	Lock       *sync.Mutex
+	jobs       chan []byte
 }
 
 var ErrResponseNotOK = errors.New("response not OK")
+
+func NewHTTPReportAdapter(
+	logger logging.ILogger,
+	serverAddr string,
+	updateURL string,
+	retrier utils.Retrier,
+	hmacKey []byte,
+	workerNum uint,
+) *HTTPReportAdapter {
+	jobs := make(chan []byte, workerNum)
+	adapter := HTTPReportAdapter{
+		Logger:     logger,
+		ServerAddr: serverAddr,
+		UpdateURL:  updateURL,
+		Retrier:    retrier,
+		HMACKey:    hmacKey,
+		Lock:       &sync.Mutex{},
+		jobs:       jobs,
+	}
+	var i uint
+	for i = 0; i < workerNum; i++ {
+		go func() {
+			select {
+			case data := <-jobs:
+				adapter.report(&data)
+			}
+		}()
+	}
+	return &adapter
+}
 
 func (r *HTTPReportAdapter) Report(metrics *common.Metrics) error {
 	r.Lock.Lock()
@@ -37,7 +68,8 @@ func (r *HTTPReportAdapter) Report(metrics *common.Metrics) error {
 		r.Logger.Errorf("Failed to marshal a metric: %v", metrics)
 		return err
 	}
-	return r.report(&payload)
+	r.jobs <- payload
+	return nil
 }
 
 func (r *HTTPReportAdapter) ReportBatch(batch []*common.Metrics) error {
@@ -48,7 +80,8 @@ func (r *HTTPReportAdapter) ReportBatch(batch []*common.Metrics) error {
 		r.Logger.Errorf("Failed to marshal a batch of metrics: %v\n", err.Error())
 		return err
 	}
-	return r.report(&payload)
+	r.jobs <- payload
+	return nil
 }
 
 func (r *HTTPReportAdapter) report(payload *[]byte) error {

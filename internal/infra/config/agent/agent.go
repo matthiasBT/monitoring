@@ -23,6 +23,7 @@ type Config struct {
 	ReportInterval       uint   `env:"REPORT_INTERVAL"`
 	PollInterval         uint   `env:"POLL_INTERVAL"`
 	HMACKey              string `env:"KEY"`
+	RateLimit            uint   `env:"RATE_LIMIT"`
 	RetryAttempts        int
 	RetryIntervalInitial time.Duration
 	RetryIntervalBackoff time.Duration
@@ -40,6 +41,7 @@ func InitConfig() (*Config, error) {
 	)
 	pollInterval := flag.Uint("p", DefPollInterval, "How often to query metrics, seconds")
 	hmacKey := flag.String("k", "", "HMAC key for integrity checks")
+	rateLimit := flag.Uint("l", 1, "Max number of active workers")
 	flag.Parse()
 	if conf.Addr == "" {
 		conf.Addr = *addr
@@ -52,6 +54,9 @@ func InitConfig() (*Config, error) {
 	}
 	if conf.HMACKey == "" {
 		conf.HMACKey = *hmacKey
+	}
+	if conf.RateLimit == 0 {
+		conf.RateLimit = *rateLimit
 	}
 	conf.UpdateURL = updateURL
 	conf.RetryAttempts = DefRetryAttempts
