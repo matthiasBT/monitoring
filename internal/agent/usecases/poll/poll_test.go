@@ -1,11 +1,13 @@
 package poll
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 
 	"github.com/matthiasBT/monitoring/internal/agent/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,10 +27,10 @@ func TestCollect(t *testing.T) {
 		gauges = append(gauges, key)
 	}
 	sort.Strings(gauges)
-
 	expectedGauges := []string{
 		"Alloc",
 		"BuckHashSys",
+		"FreeMemory",
 		"Frees",
 		"GCCPUFraction",
 		"GCSys",
@@ -55,6 +57,16 @@ func TestCollect(t *testing.T) {
 		"StackSys",
 		"Sys",
 		"TotalAlloc",
+		"TotalMemory",
+	}
+	if cpuCount, err := cpu.Counts(true); err != nil {
+		t.Fatalf("Failed to get the number of CPUs: %v", err)
+	} else {
+		for i := 1; i <= cpuCount; i++ {
+			name := fmt.Sprintf("CPUutilization%d", i)
+			expectedGauges = append(expectedGauges, name)
+		}
+		sort.Strings(expectedGauges)
 	}
 	assert.EqualValues(t, expectedGauges, gauges)
 }
