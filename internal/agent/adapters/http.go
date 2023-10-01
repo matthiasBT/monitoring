@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"sync"
 
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
@@ -24,7 +23,6 @@ type HTTPReportAdapter struct {
 	UpdateURL  string
 	Retrier    utils.Retrier
 	HMACKey    []byte
-	Lock       *sync.Mutex
 	jobs       chan []byte
 }
 
@@ -45,14 +43,13 @@ func NewHTTPReportAdapter(
 		UpdateURL:  updateURL,
 		Retrier:    retrier,
 		HMACKey:    hmacKey,
-		Lock:       &sync.Mutex{},
 		jobs:       jobs,
 	}
 	var i uint
 	for i = 0; i < workerNum; i++ {
 		go func() {
-			select {
-			case data := <-jobs:
+			for {
+				data := <-jobs
 				adapter.report(&data)
 			}
 		}()
@@ -61,8 +58,6 @@ func NewHTTPReportAdapter(
 }
 
 func (r *HTTPReportAdapter) Report(metrics *common.Metrics) error {
-	r.Lock.Lock()
-	defer r.Lock.Unlock()
 	payload, err := json.Marshal(metrics)
 	if err != nil {
 		r.Logger.Errorf("Failed to marshal a metric: %v", metrics)
@@ -73,8 +68,6 @@ func (r *HTTPReportAdapter) Report(metrics *common.Metrics) error {
 }
 
 func (r *HTTPReportAdapter) ReportBatch(batch []*common.Metrics) error {
-	r.Lock.Lock()
-	defer r.Lock.Unlock()
 	payload, err := json.Marshal(batch)
 	if err != nil {
 		r.Logger.Errorf("Failed to marshal a batch of metrics: %v\n", err.Error())
