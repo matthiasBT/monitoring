@@ -1,16 +1,16 @@
 package poll
 
 import (
+	"fmt"
 	"math/rand"
 	"runtime"
 	"time"
 
 	"github.com/matthiasBT/monitoring/internal/agent/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 )
-
-type PollerInfra struct {
-}
 
 type Poller struct {
 	Logger    logging.ILogger
@@ -71,6 +71,22 @@ func (p *Poller) currentSnapshot() {
 		Counters: map[string]int64{
 			"PollCount": p.PollCount,
 		},
+	}
+	if memstat, err := mem.VirtualMemory(); err != nil {
+		p.Logger.Errorf("Failed to get memory statistics: %v\n", err.Error())
+		return
+	} else {
+		snapshot.Gauges["TotalMemory"] = float64(memstat.Total)
+		snapshot.Gauges["FreeMemory"] = float64(memstat.Free)
+	}
+	if cpuUtilStat, err := cpu.Percent(0, true); err != nil {
+		p.Logger.Errorf("Failed to get CPU statistics: %v\n", err.Error())
+		return
+	} else {
+		for idx, utilStat := range cpuUtilStat {
+			name := fmt.Sprintf("CPUutilization%d", idx+1)
+			snapshot.Gauges[name] = utilStat
+		}
 	}
 	p.Data.CurrSnapshot = snapshot
 	p.Logger.Infoln("Created another metrics snapshot")

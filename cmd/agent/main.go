@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -40,13 +39,14 @@ func main() {
 		Data:   &dataExchange,
 		Ticker: time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
 		Done:   done,
-		SendAdapter: &adapters.HTTPReportAdapter{
-			Logger:     logger,
-			ServerAddr: conf.Addr,
-			UpdateURL:  conf.UpdateURL,
-			Retrier:    retrier,
-			Lock:       &sync.Mutex{},
-		},
+		SendAdapter: adapters.NewHTTPReportAdapter(
+			logger,
+			conf.Addr,
+			conf.UpdateURL,
+			retrier,
+			[]byte(conf.HMACKey),
+			conf.RateLimit,
+		),
 	}
 	poller := poll.Poller{
 		Logger:    logger,

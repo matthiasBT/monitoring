@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/matthiasBT/monitoring/internal/infra/hashcheck"
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 
@@ -21,11 +22,13 @@ import (
 	"github.com/matthiasBT/monitoring/internal/server/usecases"
 )
 
-func setupServer(logger logging.ILogger, controller *usecases.BaseController) *chi.Mux {
+func setupServer(logger logging.ILogger, controller *usecases.BaseController, hmacKey string) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(logging.Middleware(logger))
-	r.Use(compression.MiddlewareReader)
-	r.Use(compression.MiddlewareWriter)
+	r.Use(compression.MiddlewareReader, compression.MiddlewareWriter)
+	if hmacKey != "" {
+		r.Use(hashcheck.MiddlewareReader(hmacKey), hashcheck.MiddlewareWriter(hmacKey))
+	}
 	r.Mount("/", controller.Route())
 	return r
 }
@@ -100,7 +103,7 @@ func main() {
 	}
 
 	controller := usecases.NewBaseController(logger, storage, conf.TemplatePath)
-	r := setupServer(logger, controller)
+	r := setupServer(logger, controller, conf.HMACKey)
 	srv := http.Server{Addr: conf.Addr, Handler: r}
 	go func() {
 		logger.Infof("Launching the server at %s\n", conf.Addr)
