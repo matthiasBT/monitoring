@@ -6,9 +6,35 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/matthiasBT/monitoring/internal/infra/entities"
+	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 )
+
+type FakeKeeper struct {
+	calledFlush    bool
+	calledRestore  bool
+	calledPing     bool
+	calledShutdown bool
+}
+
+func (k *FakeKeeper) Flush(context.Context, []*common.Metrics) error {
+	k.calledFlush = true
+	return nil
+}
+
+func (k *FakeKeeper) Restore() []*common.Metrics {
+	k.calledRestore = true
+	return nil
+}
+
+func (k *FakeKeeper) Ping(ctx context.Context) error {
+	k.calledPing = true
+	return nil
+}
+
+func (k *FakeKeeper) Shutdown() {
+	k.calledShutdown = true
+}
 
 func TestMemStorage_Add(t *testing.T) {
 	st := State{
@@ -21,30 +47,30 @@ func TestMemStorage_Add(t *testing.T) {
 	}
 	tests := []struct {
 		name        string
-		Metrics     map[string]*entities.Metrics
-		update      entities.Metrics
-		wantMetrics map[string]*entities.Metrics
-		want        entities.Metrics
+		Metrics     map[string]*common.Metrics
+		update      common.Metrics
+		wantMetrics map[string]*common.Metrics
+		want        common.Metrics
 		wantErr     error
 	}{
 		{
 			name:    "create a counter",
-			Metrics: make(map[string]*entities.Metrics),
-			update: entities.Metrics{
+			Metrics: make(map[string]*common.Metrics),
+			update: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 				Delta: ptrint64(33),
 				Value: nil,
 			},
-			want: entities.Metrics{
+			want: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 				Delta: ptrint64(33),
 				Value: nil,
 			},
-			wantMetrics: map[string]*entities.Metrics{"FooBar": {
+			wantMetrics: map[string]*common.Metrics{"FooBar": {
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 				Delta: ptrint64(33),
 				Value: nil,
 			}},
@@ -52,27 +78,27 @@ func TestMemStorage_Add(t *testing.T) {
 		},
 		{
 			name: "update a counter",
-			Metrics: map[string]*entities.Metrics{"FooBar": {
+			Metrics: map[string]*common.Metrics{"FooBar": {
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 				Delta: ptrint64(101),
 				Value: nil,
 			}},
-			update: entities.Metrics{
+			update: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 				Delta: ptrint64(99),
 				Value: nil,
 			},
-			want: entities.Metrics{
+			want: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 				Delta: ptrint64(200),
 				Value: nil,
 			},
-			wantMetrics: map[string]*entities.Metrics{"FooBar": {
+			wantMetrics: map[string]*common.Metrics{"FooBar": {
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 				Delta: ptrint64(200),
 				Value: nil,
 			}},
@@ -80,22 +106,22 @@ func TestMemStorage_Add(t *testing.T) {
 		},
 		{
 			name:    "create a gauge",
-			Metrics: make(map[string]*entities.Metrics),
-			update: entities.Metrics{
+			Metrics: make(map[string]*common.Metrics),
+			update: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 				Delta: nil,
 				Value: ptrfloat64(44.1),
 			},
-			want: entities.Metrics{
+			want: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 				Delta: nil,
 				Value: ptrfloat64(44.1),
 			},
-			wantMetrics: map[string]*entities.Metrics{"FooBar": {
+			wantMetrics: map[string]*common.Metrics{"FooBar": {
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 				Delta: nil,
 				Value: ptrfloat64(44.1),
 			}},
@@ -103,27 +129,27 @@ func TestMemStorage_Add(t *testing.T) {
 		},
 		{
 			name: "update a gauge",
-			Metrics: map[string]*entities.Metrics{"FooBar": {
+			Metrics: map[string]*common.Metrics{"FooBar": {
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 				Delta: nil,
 				Value: ptrfloat64(44.1),
 			}},
-			update: entities.Metrics{
+			update: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 				Delta: nil,
 				Value: ptrfloat64(44.7),
 			},
-			want: entities.Metrics{
+			want: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 				Delta: nil,
 				Value: ptrfloat64(44.7),
 			},
-			wantMetrics: map[string]*entities.Metrics{"FooBar": {
+			wantMetrics: map[string]*common.Metrics{"FooBar": {
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 				Delta: nil,
 				Value: ptrfloat64(44.7),
 			}},
@@ -150,6 +176,97 @@ func TestMemStorage_Add(t *testing.T) {
 	}
 }
 
+func TestMemStorage_AddBatch(t *testing.T) {
+	st := State{
+		Metrics: nil,
+		Lock:    &sync.Mutex{},
+	}
+	stor := MemStorage{
+		State:  st,
+		Logger: logging.SetupLogger(),
+	}
+	tests := []struct {
+		name        string
+		Metrics     map[string]*common.Metrics
+		update      []*common.Metrics
+		wantMetrics map[string]*common.Metrics
+	}{
+		{
+			name:    "create_counters",
+			Metrics: make(map[string]*common.Metrics),
+			update: []*common.Metrics{
+				{
+					ID:    "FooBar1",
+					MType: common.TypeCounter,
+					Delta: ptrint64(33),
+					Value: nil,
+				},
+				{
+					ID:    "FooBar2",
+					MType: common.TypeCounter,
+					Delta: ptrint64(66),
+					Value: nil,
+				},
+			},
+			wantMetrics: map[string]*common.Metrics{
+				"FooBar1": {
+					ID:    "FooBar1",
+					MType: common.TypeCounter,
+					Delta: ptrint64(33),
+					Value: nil,
+				},
+				"FooBar2": {
+					ID:    "FooBar2",
+					MType: common.TypeCounter,
+					Delta: ptrint64(66),
+					Value: nil,
+				},
+			},
+		},
+		{
+			name:    "create_gauges",
+			Metrics: make(map[string]*common.Metrics),
+			update: []*common.Metrics{
+				{
+					ID:    "BarFoo1",
+					MType: common.TypeGauge,
+					Delta: nil,
+					Value: ptrfloat64(44.1),
+				},
+				{
+					ID:    "BarFoo2",
+					MType: common.TypeGauge,
+					Delta: nil,
+					Value: ptrfloat64(55.5),
+				},
+			},
+			wantMetrics: map[string]*common.Metrics{
+				"BarFoo1": {
+					ID:    "BarFoo1",
+					MType: common.TypeGauge,
+					Delta: nil,
+					Value: ptrfloat64(44.1),
+				},
+				"BarFoo2": {
+					ID:    "BarFoo2",
+					MType: common.TypeGauge,
+					Delta: nil,
+					Value: ptrfloat64(55.5),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		stor.Metrics = tt.Metrics
+		t.Run(tt.name, func(t *testing.T) {
+			stor.AddBatch(context.Background(), tt.update)
+		})
+		if !compareState(stor.Metrics, tt.wantMetrics) {
+			t.Errorf("State mismatch. got = %v, want %v", stor.Metrics, tt.wantMetrics)
+		}
+	}
+}
+
 func TestMemStorage_Get(t *testing.T) {
 	st := State{
 		Metrics: nil,
@@ -161,36 +278,36 @@ func TestMemStorage_Get(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		Metrics map[string]*entities.Metrics
-		query   entities.Metrics
-		want    *entities.Metrics
+		Metrics map[string]*common.Metrics
+		query   common.Metrics
+		want    *common.Metrics
 		wantErr error
 	}{
 		{
 			name:    "get a counter from empty storage",
-			Metrics: make(map[string]*entities.Metrics),
-			query: entities.Metrics{
+			Metrics: make(map[string]*common.Metrics),
+			query: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 			},
 			want:    nil,
-			wantErr: entities.ErrUnknownMetric,
+			wantErr: common.ErrUnknownMetric,
 		},
 		{
 			name: "get an existing counter",
-			Metrics: map[string]*entities.Metrics{"FooBar": {
+			Metrics: map[string]*common.Metrics{"FooBar": {
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 				Delta: ptrint64(33),
 				Value: nil,
 			}},
-			query: entities.Metrics{
+			query: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 			},
-			want: &entities.Metrics{
+			want: &common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 				Delta: ptrint64(33),
 				Value: nil,
 			},
@@ -198,29 +315,29 @@ func TestMemStorage_Get(t *testing.T) {
 		},
 		{
 			name:    "get a gauge from empty storage",
-			Metrics: make(map[string]*entities.Metrics),
-			query: entities.Metrics{
+			Metrics: make(map[string]*common.Metrics),
+			query: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 			},
 			want:    nil,
-			wantErr: entities.ErrUnknownMetric,
+			wantErr: common.ErrUnknownMetric,
 		},
 		{
 			name: "get an existing gauge",
-			Metrics: map[string]*entities.Metrics{"FooBar": {
+			Metrics: map[string]*common.Metrics{"FooBar": {
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 				Delta: nil,
 				Value: ptrfloat64(77.1),
 			}},
-			query: entities.Metrics{
+			query: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 			},
-			want: &entities.Metrics{
+			want: &common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 				Delta: nil,
 				Value: ptrfloat64(77.1),
 			},
@@ -228,18 +345,18 @@ func TestMemStorage_Get(t *testing.T) {
 		},
 		{
 			name: "name clash",
-			Metrics: map[string]*entities.Metrics{"FooBar": {
+			Metrics: map[string]*common.Metrics{"FooBar": {
 				ID:    "FooBar",
-				MType: entities.TypeGauge,
+				MType: common.TypeGauge,
 				Delta: nil,
 				Value: ptrfloat64(77.1),
 			}},
-			query: entities.Metrics{
+			query: common.Metrics{
 				ID:    "FooBar",
-				MType: entities.TypeCounter,
+				MType: common.TypeCounter,
 			},
 			want:    nil,
-			wantErr: entities.ErrUnknownMetric,
+			wantErr: common.ErrUnknownMetric,
 		},
 	}
 	for _, tt := range tests {
@@ -267,7 +384,7 @@ func ptrint64(val int64) *int64 {
 	return &val
 }
 
-func compare(m1 *entities.Metrics, m2 *entities.Metrics) bool {
+func compare(m1 *common.Metrics, m2 *common.Metrics) bool {
 	return m1 == nil && m2 == nil ||
 		m1.ID == m2.ID &&
 			m1.MType == m2.MType &&
@@ -277,7 +394,7 @@ func compare(m1 *entities.Metrics, m2 *entities.Metrics) bool {
 				m1.Value == nil && m2.Value == nil)
 }
 
-func compareState(got map[string]*entities.Metrics, want map[string]*entities.Metrics) bool {
+func compareState(got map[string]*common.Metrics, want map[string]*common.Metrics) bool {
 	for key, m1 := range got {
 		if !compare(m1, want[key]) {
 			return false
@@ -289,4 +406,155 @@ func compareState(got map[string]*entities.Metrics, want map[string]*entities.Me
 		}
 	}
 	return true
+}
+
+func TestMemStorage_Init(t *testing.T) {
+	tests := []struct {
+		name string
+		data []*common.Metrics
+		want map[string]*common.Metrics
+	}{
+		{
+			name: "new_state_after_init",
+			data: []*common.Metrics{
+				{
+					ID:    "FooBar1",
+					MType: common.TypeCounter,
+					Delta: ptrint64(33),
+					Value: nil,
+				},
+				{
+					ID:    "FooBar2",
+					MType: common.TypeCounter,
+					Delta: ptrint64(66),
+					Value: nil,
+				},
+			},
+			want: map[string]*common.Metrics{
+				"FooBar1": {
+					ID:    "FooBar1",
+					MType: common.TypeCounter,
+					Delta: ptrint64(33),
+					Value: nil,
+				},
+				"FooBar2": {
+					ID:    "FooBar2",
+					MType: common.TypeCounter,
+					Delta: ptrint64(66),
+					Value: nil,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := &MemStorage{Logger: logging.SetupLogger()}
+			storage.Init(tt.data)
+			if !compareState(storage.Metrics, tt.want) {
+				t.Errorf("State mismatch. Got: %v, want: %v", storage.Metrics, tt.want)
+			}
+		})
+	}
+}
+
+func TestMemStorage_Ping(t *testing.T) {
+	tests := []struct {
+		name   string
+		Keeper *FakeKeeper
+	}{
+		{
+			name:   "no_keeper_is_ok",
+			Keeper: nil,
+		},
+		{
+			name:   "keeper_ping_is_called",
+			Keeper: &FakeKeeper{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := &MemStorage{}
+			if tt.Keeper != nil {
+				storage.Keeper = tt.Keeper
+			}
+			storage.Ping(context.Background())
+			if tt.Keeper != nil {
+				if !tt.Keeper.calledPing ||
+					tt.Keeper.calledFlush ||
+					tt.Keeper.calledRestore ||
+					tt.Keeper.calledShutdown {
+					t.Errorf("Invalid interaction with the keeper. Keeper state: %v", tt.Keeper)
+				}
+			}
+		})
+	}
+}
+
+func TestMemStorage_Snapshot(t *testing.T) {
+	tests := []struct {
+		name  string
+		state map[string]*common.Metrics
+		want1 []*common.Metrics
+		want2 []*common.Metrics
+	}{
+		{
+			name: "snapshot_values_are_in_any_order",
+			state: map[string]*common.Metrics{
+				"FooBar1": {
+					ID:    "FooBar1",
+					MType: common.TypeCounter,
+					Delta: ptrint64(33),
+					Value: nil,
+				},
+				"FooBar2": {
+					ID:    "FooBar2",
+					MType: common.TypeCounter,
+					Delta: ptrint64(66),
+					Value: nil,
+				},
+			},
+			want1: []*common.Metrics{
+				{
+					ID:    "FooBar1",
+					MType: common.TypeCounter,
+					Delta: ptrint64(33),
+					Value: nil,
+				},
+				{
+					ID:    "FooBar2",
+					MType: common.TypeCounter,
+					Delta: ptrint64(66),
+					Value: nil,
+				},
+			},
+			want2: []*common.Metrics{
+				{
+					ID:    "FooBar2",
+					MType: common.TypeCounter,
+					Delta: ptrint64(66),
+					Value: nil,
+				},
+				{
+					ID:    "FooBar1",
+					MType: common.TypeCounter,
+					Delta: ptrint64(33),
+					Value: nil,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := &MemStorage{}
+			storage.Metrics = tt.state
+			got, _ := storage.Snapshot(context.Background())
+			if len(got) != len(tt.state) {
+				t.Errorf("Snapshot must contain %d elements, got: %d", len(tt.state), len(got))
+			}
+			if !(compare(got[0], tt.want1[0]) && compare(got[1], tt.want1[1])) &&
+				!(compare(got[0], tt.want2[0]) && compare(got[1], tt.want2[1])) {
+				t.Errorf("Snapshot() got = %v, want %v or %v", got, tt.want1, tt.want2)
+			}
+		})
+	}
 }

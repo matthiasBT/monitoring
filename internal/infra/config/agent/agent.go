@@ -15,6 +15,7 @@ const (
 	DefRetryAttempts        = 3
 	DefRetryIntervalInitial = 1 * time.Second
 	DefRetryIntervalBackoff = 2 * time.Second
+	DefRateLimit            = 1
 )
 
 type Config struct {
@@ -41,7 +42,7 @@ func InitConfig() (*Config, error) {
 	)
 	pollInterval := flag.Uint("p", DefPollInterval, "How often to query metrics, seconds")
 	hmacKey := flag.String("k", "", "HMAC key for integrity checks")
-	rateLimit := flag.Uint("l", 1, "Max number of active workers")
+	rateLimit := flag.Uint("l", DefRateLimit, "Max number of active workers")
 	flag.Parse()
 	if conf.Addr == "" {
 		conf.Addr = *addr
