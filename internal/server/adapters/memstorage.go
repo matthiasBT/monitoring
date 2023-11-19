@@ -8,7 +8,6 @@ import (
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
-	"golang.org/x/exp/maps"
 )
 
 type State struct {
@@ -76,9 +75,12 @@ func (storage *MemStorage) GetAll(ctx context.Context) (map[string]*common.Metri
 	return storage.Metrics, nil
 }
 
-func (storage *MemStorage) Snapshot(ctx context.Context) ([]*common.Metrics, error) {
-	data := maps.Values(storage.Metrics)
-	return data, nil
+func (storage *MemStorage) Snapshot(context.Context) ([]*common.Metrics, error) {
+	result := make([]*common.Metrics, 0, len(storage.Metrics))
+	for _, val := range storage.Metrics {
+		result = append(result, val)
+	}
+	return result, nil
 }
 
 func (storage *MemStorage) Init(data []*common.Metrics) {

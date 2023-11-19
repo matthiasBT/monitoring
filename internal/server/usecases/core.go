@@ -26,8 +26,10 @@ func GetAllMetrics(ctx context.Context, c *BaseController, templateName string) 
 	if err != nil {
 		return nil, err
 	}
-	var result bytes.Buffer
 	data := prepareTemplateData(metrics)
+	initialBytes := make([]byte, 0, len(data))
+	var result bytes.Buffer
+	result.Write(initialBytes)
 	path := filepath.Join(c.TemplatePath, templateName)
 	tmpl := template.Must(template.ParseFiles(path))
 	if err := tmpl.Execute(&result, data); err != nil {

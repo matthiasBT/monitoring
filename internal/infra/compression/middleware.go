@@ -25,7 +25,7 @@ func MiddlewareWriter(next http.Handler) http.Handler {
 			return
 		}
 
-		gz, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
+		gz, err := gzip.NewWriterLevel(w, gzip.BestCompression)
 		if err != nil {
 			io.WriteString(w, err.Error())
 			return
