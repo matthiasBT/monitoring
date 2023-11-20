@@ -10,15 +10,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/matthiasBT/monitoring/internal/infra/hashcheck"
-	"github.com/matthiasBT/monitoring/internal/infra/utils"
-	"github.com/matthiasBT/monitoring/internal/server/entities"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/matthiasBT/monitoring/internal/infra/compression"
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
+	"github.com/matthiasBT/monitoring/internal/infra/hashcheck"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/matthiasBT/monitoring/internal/server/adapters"
+	"github.com/matthiasBT/monitoring/internal/server/entities"
 	"github.com/matthiasBT/monitoring/internal/server/usecases"
 )
 
