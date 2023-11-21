@@ -1,3 +1,7 @@
+// Package adapters provides functionalities to handle HTTP communication,
+// specifically for reporting metrics. It includes structures and methods
+// for sending reports, handling retries, and ensuring data integrity.
+
 package adapters
 
 import (
@@ -17,17 +21,35 @@ import (
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
 )
 
+// HTTPReportAdapter is responsible for sending metrics over HTTP. It handles
+// the creation and sending of HTTP requests, including retries and HMAC authentication.
+// It uses a channel to queue payloads for asynchronous processing.
 type HTTPReportAdapter struct {
-	Logger     logging.ILogger
+	// Logger is used for logging messages related to HTTP reporting activities.
+	Logger logging.ILogger
+
+	// ServerAddr specifies the HTTP server address where reports are sent.
 	ServerAddr string
-	UpdateURL  string
-	Retrier    utils.Retrier
-	HMACKey    []byte
-	jobs       chan []byte
+
+	// UpdateURL is the endpoint for updating or sending reports.
+	UpdateURL string
+
+	// Retrier is used to handle retries for HTTP requests in case of failures.
+	Retrier utils.Retrier
+
+	// HMACKey is the key used for HMAC-SHA256 hashing to ensure data integrity.
+	HMACKey []byte
+
+	// jobs is an internal channel used to queue payloads for reporting.
+	jobs chan []byte
 }
 
+// ErrResponseNotOK is an error indicating that the HTTP response status is not OK (200).
 var ErrResponseNotOK = errors.New("response not OK")
 
+// NewHTTPReportAdapter creates and returns a new HTTPReportAdapter. It initializes
+// the adapter with the provided logger, server address, update URL, retrier, HMAC key,
+// and sets up worker goroutines based on the provided workerNum.
 func NewHTTPReportAdapter(
 	logger logging.ILogger,
 	serverAddr string,
@@ -57,6 +79,8 @@ func NewHTTPReportAdapter(
 	return &adapter
 }
 
+// Report sends a single metric over HTTP. It marshals the metric, logs any errors
+// in marshaling, and queues the payload for processing.
 func (r *HTTPReportAdapter) Report(metrics *common.Metrics) error {
 	payload, err := json.Marshal(metrics)
 	if err != nil {
@@ -67,6 +91,8 @@ func (r *HTTPReportAdapter) Report(metrics *common.Metrics) error {
 	return nil
 }
 
+// ReportBatch sends a batch of metrics over HTTP. It marshals the batch of metrics,
+// logs any errors in marshaling, and queues the payload for processing.
 func (r *HTTPReportAdapter) ReportBatch(batch []*common.Metrics) error {
 	payload, err := json.Marshal(batch)
 	if err != nil {

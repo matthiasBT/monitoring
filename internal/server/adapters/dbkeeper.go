@@ -1,3 +1,6 @@
+// Package adapters provides functionality for managing database connections,
+// particularly for PostgreSQL, and includes methods for performing operations
+// with retry logic and error handling.
 package adapters
 
 import (
@@ -15,13 +18,18 @@ import (
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
+// DBKeeper is a struct that manages database operations and holds a SQL database connection,
+// a logger for logging operations, a retrier for handling retry logic, and a mutex for
+// synchronizing operations.
 type DBKeeper struct {
-	DB      *sql.DB
-	Logger  logging.ILogger
-	Retrier utils.Retrier
-	Lock    *sync.Mutex
+	DB      *sql.DB         // Database connection
+	Logger  logging.ILogger // Logger for logging activities
+	Retrier utils.Retrier   // Retrier for retry logic
+	Lock    *sync.Mutex     // Mutex for synchronization
 }
 
+// NewDBKeeper creates and returns a new DBKeeper instance with the provided configuration,
+// logger, and retrier. It opens a database connection, tests it, and runs migrations.
 func NewDBKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Retrier) entities.Keeper {
 	logger.Debugf("Opening the database: %s\n", conf.DatabaseDSN)
 	db, err := sql.Open("pgx", conf.DatabaseDSN)
@@ -38,6 +46,8 @@ func NewDBKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Retr
 	return &keeper
 }
 
+// Flush saves a snapshot of storage data (metrics) to the database using transactions,
+// with retry logic for transient errors.
 func (dbk *DBKeeper) Flush(ctx context.Context, storageSnapshot []*common.Metrics) error {
 	dbk.Logger.Infoln("Starting saving the storage data")
 
@@ -70,6 +80,7 @@ func (dbk *DBKeeper) Flush(ctx context.Context, storageSnapshot []*common.Metric
 	return nil
 }
 
+// Restore fetches and returns all metrics from the database, with retry logic for transient errors.
 func (dbk *DBKeeper) Restore() []*common.Metrics {
 	dbk.Logger.Infoln("Restoring the storage data")
 	var result []*common.Metrics
@@ -241,6 +252,7 @@ func scanSingleMetric(rows *sql.Rows, result *common.Metrics) error {
 	return rows.Scan(&result.ID, &result.MType, &result.Delta, &result.Value)
 }
 
+// Shutdown closes the database connection and logs any errors encountered during the operation.
 func (dbk *DBKeeper) Shutdown() {
 	dbk.Logger.Infoln("Shutting down the database")
 	if err := dbk.DB.Close(); err != nil {
@@ -249,6 +261,7 @@ func (dbk *DBKeeper) Shutdown() {
 	}
 }
 
+// Ping tests the database connection and logs any errors.
 func (dbk *DBKeeper) Ping(ctx context.Context) error {
 	if err := dbk.DB.PingContext(ctx); err != nil {
 		dbk.Logger.Errorf("Database ping failed: %s\n", err.Error())

@@ -1,3 +1,7 @@
+// Package agent provides the configuration setup for an agent application.
+// It includes structures and functions for initializing and managing
+// configuration settings.
+
 package agent
 
 import (
@@ -18,18 +22,41 @@ const (
 	DefRateLimit            = 1
 )
 
+// Config defines the configuration parameters for the agent. It includes
+// server address, update URL, intervals for reporting and polling metrics,
+// HMAC key for integrity checks, rate limits, and retry settings.
 type Config struct {
-	Addr                 string `env:"ADDRESS"`
-	UpdateURL            string
-	ReportInterval       uint   `env:"REPORT_INTERVAL"`
-	PollInterval         uint   `env:"POLL_INTERVAL"`
-	HMACKey              string `env:"KEY"`
-	RateLimit            uint   `env:"RATE_LIMIT"`
-	RetryAttempts        int
+	// Addr represents the server address to which the agent connects.
+	Addr string `env:"ADDRESS"`
+
+	// UpdateURL is the URL endpoint for sending updates.
+	UpdateURL string
+
+	// ReportInterval specifies how often (in seconds) the agent sends metrics to the server.
+	ReportInterval uint `env:"REPORT_INTERVAL"`
+
+	// PollInterval specifies how often (in seconds) the agent queries for metrics.
+	PollInterval uint `env:"POLL_INTERVAL"`
+
+	// HMACKey is used for HMAC-based integrity checks.
+	HMACKey string `env:"KEY"`
+
+	// RateLimit defines the maximum number of active workers for processing.
+	RateLimit uint `env:"RATE_LIMIT"`
+
+	// RetryAttempts is the number of retry attempts for failed requests.
+	RetryAttempts int
+
+	// RetryIntervalInitial is the initial time duration between retries.
 	RetryIntervalInitial time.Duration
+
+	// RetryIntervalBackoff is the time duration for exponential backoff between retries.
 	RetryIntervalBackoff time.Duration
 }
 
+// InitConfig initializes the Config structure by parsing environment variables
+// and command-line flags. It provides defaults for missing values and sets up
+// the configuration for the agent.
 func InitConfig() (*Config, error) {
 	conf := new(Config)
 	err := env.Parse(conf)

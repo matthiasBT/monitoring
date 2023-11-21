@@ -1,3 +1,6 @@
+// Package adapters provides functionality for managing in-memory storage
+// of metrics. It includes operations for adding, retrieving, and flushing
+// metrics, as well as periodic flush operations to an external storage.
 package adapters
 
 import (
@@ -10,19 +13,25 @@ import (
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
+// State represents the in-memory storage state containing metrics
+// and a mutex for synchronization.
 type State struct {
-	Metrics map[string]*common.Metrics
-	Lock    *sync.Mutex
+	Metrics map[string]*common.Metrics // In-memory map of metrics
+	Lock    *sync.Mutex                // Mutex for synchronization
 }
 
+// MemStorage is a struct that manages in-memory storage operations,
+// periodic flushing to external storage, and logging.
 type MemStorage struct {
-	State
-	Done   <-chan struct{}
-	Tick   <-chan time.Time
-	Logger logging.ILogger
-	Keeper entities.Keeper
+	State                   // Embedded in-memory state
+	Done   <-chan struct{}  // Channel signaling the end of the application
+	Tick   <-chan time.Time // Ticker channel for periodic operations
+	Logger logging.ILogger  // Logger for logging activities
+	Keeper entities.Keeper  // External storage Keeper for flushing data
 }
 
+// NewMemStorage creates and returns a new MemStorage instance.
+// It initializes in-memory state and sets up channels for periodic flushing.
 func NewMemStorage(
 	done <-chan struct{},
 	tick <-chan time.Time,
@@ -41,6 +50,7 @@ func NewMemStorage(
 	}
 }
 
+// Add adds or updates a single metric in the in-memory storage.
 func (storage *MemStorage) Add(ctx context.Context, update *common.Metrics) (*common.Metrics, error) {
 	storage.Lock.Lock()
 	defer storage.Lock.Unlock()
@@ -48,6 +58,7 @@ func (storage *MemStorage) Add(ctx context.Context, update *common.Metrics) (*co
 	return storage.addSingle(ctx, update)
 }
 
+// AddBatch adds a batch of metrics to the in-memory storage.
 func (storage *MemStorage) AddBatch(ctx context.Context, batch []*common.Metrics) error {
 	storage.Lock.Lock()
 	defer storage.Lock.Unlock()
@@ -61,6 +72,7 @@ func (storage *MemStorage) AddBatch(ctx context.Context, batch []*common.Metrics
 	return nil
 }
 
+// Get retrieves a single metric from the in-memory storage based on query criteria.
 func (storage *MemStorage) Get(ctx context.Context, query *common.Metrics) (*common.Metrics, error) {
 	storage.Logger.Infof("Getting the metric %s %s\n", query.ID, query.MType)
 	result, ok := storage.Metrics[query.ID]
@@ -71,10 +83,12 @@ func (storage *MemStorage) Get(ctx context.Context, query *common.Metrics) (*com
 	return result, nil
 }
 
+// GetAll returns all metrics currently stored in-memory.
 func (storage *MemStorage) GetAll(ctx context.Context) (map[string]*common.Metrics, error) {
 	return storage.Metrics, nil
 }
 
+// Snapshot creates and returns a snapshot of the current in-memory metrics.
 func (storage *MemStorage) Snapshot(context.Context) ([]*common.Metrics, error) {
 	result := make([]*common.Metrics, 0, len(storage.Metrics))
 	for _, val := range storage.Metrics {
@@ -83,6 +97,7 @@ func (storage *MemStorage) Snapshot(context.Context) ([]*common.Metrics, error) 
 	return result, nil
 }
 
+// Init initializes the in-memory storage with provided data.
 func (storage *MemStorage) Init(data []*common.Metrics) {
 	storage.Logger.Infoln("Initializing the storage with new data. Old data will be lost")
 	result := make(map[string]*common.Metrics, len(data))
@@ -93,6 +108,7 @@ func (storage *MemStorage) Init(data []*common.Metrics) {
 	storage.Logger.Infoln("Init finished successfully")
 }
 
+// Ping delegates the ping operation to the Keeper, if available.
 func (storage *MemStorage) Ping(ctx context.Context) error {
 	if storage.Keeper != nil {
 		return storage.Keeper.Ping(ctx)
@@ -100,6 +116,7 @@ func (storage *MemStorage) Ping(ctx context.Context) error {
 	return nil
 }
 
+// FlushPeriodic handles periodic flushing of in-memory data to external storage.
 func (storage *MemStorage) FlushPeriodic(ctx context.Context) {
 	storage.Logger.Infoln("Launching the FlushPeriodic job")
 	for {
