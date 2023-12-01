@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
@@ -17,6 +19,7 @@ import (
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
+// todo
 func TestDBKeeper_Flush(t *testing.T) {
 	type fields struct {
 		DB      *sql.DB
@@ -115,8 +118,6 @@ func TestDBKeeper_Ping(t *testing.T) {
 
 func TestDBKeeper_Restore(t *testing.T) {
 	type fields struct {
-		DB      *sql.DB
-		Logger  logging.ILogger
 		Retrier utils.Retrier
 		Lock    *sync.Mutex
 	}
@@ -125,18 +126,42 @@ func TestDBKeeper_Restore(t *testing.T) {
 		fields fields
 		want   []*common.Metrics
 	}{
-		// TODO: Add test cases.
+		{
+			name: "restore_success",
+			fields: fields{
+				Retrier: utils.Retrier{
+					Attempts:         2,
+					IntervalFirst:    100 * time.Millisecond,
+					IntervalIncrease: 100 * time.Millisecond,
+					Logger:           logging.SetupLogger(),
+				},
+				Lock: &sync.Mutex{},
+			},
+			want: getMetricsRows(),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("Error creating mock database: %v", err)
+			}
+			defer db.Close()
+			rows := sqlmock.NewRows([]string{"ID", "MType", "Delta", "Value"}).
+				AddRow("foo", "counter", "4", nil).
+				AddRow("bar", "gauge", nil, "3.2")
+			mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM metrics")).WillReturnRows(rows)
 			dbk := &DBKeeper{
-				DB:      tt.fields.DB,
-				Logger:  tt.fields.Logger,
+				DB:      db,
+				Logger:  logging.SetupLogger(),
 				Retrier: tt.fields.Retrier,
 				Lock:    tt.fields.Lock,
 			}
 			if got := dbk.Restore(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Restore() = %v, want %v", got, tt.want)
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("Unfulfilled expectations: %s", err)
 			}
 		})
 	}
@@ -214,6 +239,7 @@ func TestDBKeeper_Shutdown(t *testing.T) {
 	}
 }
 
+// todo
 func TestDBKeeper_addSingle(t *testing.T) {
 	type fields struct {
 		DB      *sql.DB
@@ -255,6 +281,7 @@ func TestDBKeeper_addSingle(t *testing.T) {
 	}
 }
 
+// todo
 func TestDBKeeper_create(t *testing.T) {
 	type fields struct {
 		DB      *sql.DB
@@ -290,6 +317,7 @@ func TestDBKeeper_create(t *testing.T) {
 	}
 }
 
+// todo
 func TestDBKeeper_get(t *testing.T) {
 	type fields struct {
 		DB      *sql.DB
@@ -331,6 +359,7 @@ func TestDBKeeper_get(t *testing.T) {
 	}
 }
 
+// todo?
 func TestDBKeeper_prepareStatement(t *testing.T) {
 	type fields struct {
 		DB      *sql.DB
@@ -371,6 +400,7 @@ func TestDBKeeper_prepareStatement(t *testing.T) {
 	}
 }
 
+// todo
 func TestDBKeeper_update(t *testing.T) {
 	type fields struct {
 		DB      *sql.DB
@@ -412,6 +442,7 @@ func TestDBKeeper_update(t *testing.T) {
 	}
 }
 
+// todo
 func TestNewDBKeeper(t *testing.T) {
 	type args struct {
 		conf    *server.Config
@@ -434,6 +465,7 @@ func TestNewDBKeeper(t *testing.T) {
 	}
 }
 
+// todo?
 func Test_scanMetric(t *testing.T) {
 	type args struct {
 		row    *sql.Row
@@ -455,6 +487,7 @@ func Test_scanMetric(t *testing.T) {
 	}
 }
 
+// todo?
 func Test_scanSingleMetric(t *testing.T) {
 	type args struct {
 		rows   *sql.Rows
@@ -474,4 +507,20 @@ func Test_scanSingleMetric(t *testing.T) {
 			}
 		})
 	}
+}
+
+func getMetricsRows() []*common.Metrics {
+	counter := common.Metrics{
+		ID:    "foo",
+		MType: "counter",
+		Delta: ptrint64(4),
+		Value: nil,
+	}
+	gauge := common.Metrics{
+		ID:    "bar",
+		MType: "gauge",
+		Delta: nil,
+		Value: ptrfloat64(3.2),
+	}
+	return []*common.Metrics{&counter, &gauge}
 }
