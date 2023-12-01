@@ -144,26 +144,72 @@ func TestDBKeeper_Restore(t *testing.T) {
 
 func TestDBKeeper_Shutdown(t *testing.T) {
 	type fields struct {
-		DB      *sql.DB
-		Logger  logging.ILogger
 		Retrier utils.Retrier
 		Lock    *sync.Mutex
 	}
+	type args struct {
+		ctx context.Context
+	}
 	tests := []struct {
-		name   string
-		fields fields
+		name    string
+		fields  fields
+		args    args
+		wantErr error
 	}{
-		// TODO: Add test cases.
+		{
+			name: "shutdown_success",
+			fields: fields{
+				Retrier: utils.Retrier{},
+				Lock:    &sync.Mutex{},
+			},
+			args:    args{ctx: context.Background()},
+			wantErr: nil,
+		},
+		{
+			name: "shutdown_error",
+			fields: fields{
+				Retrier: utils.Retrier{},
+				Lock:    &sync.Mutex{},
+			},
+			args:    args{ctx: context.Background()},
+			wantErr: fmt.Errorf("fake error"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("Error creating mock DB: %v", err)
+			}
+			defer db.Close()
+
+			if tt.wantErr == nil {
+				mock.ExpectClose()
+			} else {
+				mock.ExpectClose().WillReturnError(tt.wantErr)
+			}
 			dbk := &DBKeeper{
-				DB:      tt.fields.DB,
-				Logger:  tt.fields.Logger,
+				DB:      db,
+				Logger:  logging.SetupLogger(),
 				Retrier: tt.fields.Retrier,
 				Lock:    tt.fields.Lock,
 			}
+			defer func() {
+				if r := recover(); r != nil {
+					if tt.wantErr != nil {
+						if r != tt.wantErr {
+							t.Errorf("Panic with unexpected error: %v", r)
+						}
+						if err := mock.ExpectationsWereMet(); err != nil {
+							t.Errorf("Unfulfilled expectations: %s", err)
+						}
+					}
+				}
+			}()
 			dbk.Shutdown()
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("Unfulfilled expectations: %s", err)
+			}
 		})
 	}
 }
