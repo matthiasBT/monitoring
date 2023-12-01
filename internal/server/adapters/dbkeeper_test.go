@@ -122,9 +122,10 @@ func TestDBKeeper_Restore(t *testing.T) {
 		Lock    *sync.Mutex
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		want   []*common.Metrics
+		name    string
+		fields  fields
+		want    []*common.Metrics
+		wantErr error
 	}{
 		{
 			name: "restore_success",
@@ -137,7 +138,22 @@ func TestDBKeeper_Restore(t *testing.T) {
 				},
 				Lock: &sync.Mutex{},
 			},
-			want: getMetricsRows(),
+			want:    getMetricsRows(),
+			wantErr: nil,
+		},
+		{
+			name: "restore_query_failure",
+			fields: fields{
+				Retrier: utils.Retrier{
+					Attempts:         2,
+					IntervalFirst:    100 * time.Millisecond,
+					IntervalIncrease: 100 * time.Millisecond,
+					Logger:           logging.SetupLogger(),
+				},
+				Lock: &sync.Mutex{},
+			},
+			want:    nil,
+			wantErr: fmt.Errorf("fake error"),
 		},
 	}
 	for _, tt := range tests {
@@ -150,13 +166,29 @@ func TestDBKeeper_Restore(t *testing.T) {
 			rows := sqlmock.NewRows([]string{"ID", "MType", "Delta", "Value"}).
 				AddRow("foo", "counter", "4", nil).
 				AddRow("bar", "gauge", nil, "3.2")
-			mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM metrics")).WillReturnRows(rows)
+			if tt.wantErr == nil {
+				mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM metrics")).WillReturnRows(rows)
+			} else {
+				mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM metrics")).WillReturnError(tt.wantErr)
+			}
 			dbk := &DBKeeper{
 				DB:      db,
 				Logger:  logging.SetupLogger(),
 				Retrier: tt.fields.Retrier,
 				Lock:    tt.fields.Lock,
 			}
+			defer func() {
+				if r := recover(); r != nil {
+					if tt.wantErr != nil {
+						if !errors.Is(r.(error), tt.wantErr) {
+							t.Errorf("Panic with unexpected error: %v", r)
+						}
+						if err := mock.ExpectationsWereMet(); err != nil {
+							t.Errorf("Unfulfilled expectations: %s", err)
+						}
+					}
+				}
+			}()
 			if got := dbk.Restore(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Restore() = %v, want %v", got, tt.want)
 			}
@@ -222,7 +254,7 @@ func TestDBKeeper_Shutdown(t *testing.T) {
 			defer func() {
 				if r := recover(); r != nil {
 					if tt.wantErr != nil {
-						if r != tt.wantErr {
+						if !errors.Is(r.(error), tt.wantErr) {
 							t.Errorf("Panic with unexpected error: %v", r)
 						}
 						if err := mock.ExpectationsWereMet(); err != nil {
