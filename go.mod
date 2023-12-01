@@ -3,6 +3,7 @@ module github.com/matthiasBT/monitoring
 go 1.20
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/caarlos0/env/v9 v9.0.0
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
