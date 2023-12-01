@@ -391,47 +391,6 @@ func TestDBKeeper_get(t *testing.T) {
 	}
 }
 
-// todo?
-func TestDBKeeper_prepareStatement(t *testing.T) {
-	type fields struct {
-		DB      *sql.DB
-		Logger  logging.ILogger
-		Retrier utils.Retrier
-		Lock    *sync.Mutex
-	}
-	type args struct {
-		ctx   context.Context
-		query string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *sql.Stmt
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dbk := &DBKeeper{
-				DB:      tt.fields.DB,
-				Logger:  tt.fields.Logger,
-				Retrier: tt.fields.Retrier,
-				Lock:    tt.fields.Lock,
-			}
-			got, err := dbk.prepareStatement(tt.args.ctx, tt.args.query)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("prepareStatement() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("prepareStatement() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 // todo
 func TestDBKeeper_update(t *testing.T) {
 	type fields struct {
@@ -492,50 +451,6 @@ func TestNewDBKeeper(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := NewDBKeeper(tt.args.conf, tt.args.logger, tt.args.retrier); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewDBKeeper() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-// todo?
-func Test_scanMetric(t *testing.T) {
-	type args struct {
-		row    *sql.Row
-		result *common.Metrics
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := scanMetric(tt.args.row, tt.args.result); (err != nil) != tt.wantErr {
-				t.Errorf("scanMetric() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-// todo?
-func Test_scanSingleMetric(t *testing.T) {
-	type args struct {
-		rows   *sql.Rows
-		result *common.Metrics
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := scanSingleMetric(tt.args.rows, tt.args.result); (err != nil) != tt.wantErr {
-				t.Errorf("scanSingleMetric() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
