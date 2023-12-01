@@ -1,3 +1,5 @@
+// Package usecases provides utility functions for parsing and writing metrics data
+// in HTTP requests and responses. These functions support both JSON and URL-encoded data.
 package usecases
 
 import (
@@ -11,6 +13,8 @@ import (
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 )
 
+// parseMetric parses a metric from an HTTP request. It supports JSON and URL-encoded data.
+// For URL-encoded data, it can parse with or without the metric value.
 func parseMetric(r *http.Request, asJSON bool, withValue bool) *common.Metrics {
 	var metrics common.Metrics
 	if asJSON {
@@ -46,6 +50,7 @@ func parseMetric(r *http.Request, asJSON bool, withValue bool) *common.Metrics {
 	return &metrics
 }
 
+// writeMetric writes a metric to an HTTP response. It supports both JSON and plain text formats.
 func writeMetric(w http.ResponseWriter, asJSON bool, metrics *common.Metrics) error {
 	var body []byte
 	if asJSON {
@@ -62,6 +67,9 @@ func writeMetric(w http.ResponseWriter, asJSON bool, metrics *common.Metrics) er
 	return nil
 }
 
+// handleInvalidMetric handles errors related to invalid metrics and writes appropriate
+// HTTP status codes and messages to the response. It covers various error cases like
+// invalid metric type, missing metric name, or invalid metric value.
 func handleInvalidMetric(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, common.ErrInvalidMetricType):

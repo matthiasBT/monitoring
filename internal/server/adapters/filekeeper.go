@@ -1,3 +1,6 @@
+// Package adapters provides functionality for managing file-based storage,
+// including reading from and writing to a file. It handles JSON serialization
+// of metrics data and ensures thread safety with a mutex.
 package adapters
 
 import (
@@ -7,21 +10,25 @@ import (
 	"os"
 	"sync"
 
-	"github.com/matthiasBT/monitoring/internal/infra/utils"
-
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
+// FileKeeper is a struct that manages file operations and holds a logger,
+// the path to the file storage, a retrier for handling retry logic, and a mutex for
+// synchronizing operations.
 type FileKeeper struct {
-	Logger  logging.ILogger
-	Path    string
-	Retrier utils.Retrier
-	Lock    *sync.Mutex
+	Logger  logging.ILogger // Logger for logging activities
+	Path    string          // Path to the file storage
+	Retrier utils.Retrier   // Retrier for retry logic
+	Lock    *sync.Mutex     // Mutex for synchronization
 }
 
+// NewFileKeeper creates and returns a new FileKeeper instance with the provided configuration,
+// logger, and retrier. It initializes a mutex for thread safety.
 func NewFileKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Retrier) entities.Keeper {
 	return &FileKeeper{
 		Logger:  logger,
@@ -31,6 +38,8 @@ func NewFileKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Re
 	}
 }
 
+// Flush writes a snapshot of storage data (metrics) to a file in JSON format,
+// ensuring thread safety and error handling.
 func (fs *FileKeeper) Flush(ctx context.Context, storageSnapshot []*common.Metrics) error {
 	fs.Logger.Infoln("Starting saving the storage data")
 
@@ -63,6 +72,7 @@ func (fs *FileKeeper) Flush(ctx context.Context, storageSnapshot []*common.Metri
 	return nil
 }
 
+// Restore reads and returns all metrics from the file storage, parsing them from JSON.
 func (fs *FileKeeper) Restore() []*common.Metrics {
 	fs.Logger.Infoln("Restoring the storage data")
 	var result []*common.Metrics
@@ -89,10 +99,12 @@ func (fs *FileKeeper) Restore() []*common.Metrics {
 	return result
 }
 
+// Ping is a no-op for the FileKeeper, as it does not require a live connection.
 func (fs *FileKeeper) Ping(context.Context) error {
 	return nil
 }
 
+// Shutdown logs that no shutdown action is needed for the FileKeeper.
 func (fs *FileKeeper) Shutdown() {
 	fs.Logger.Infoln("No shutdown action needed")
 }

@@ -27,6 +27,7 @@ func TestInitConfig(t *testing.T) {
 				RetryAttempts:        DefRetryAttempts,
 				RetryIntervalBackoff: DefRetryIntervalBackoff,
 				RetryIntervalInitial: DefRetryIntervalInitial,
+				RateLimit:            DefRateLimit,
 			},
 		},
 		{
@@ -41,6 +42,7 @@ func TestInitConfig(t *testing.T) {
 				RetryAttempts:        DefRetryAttempts,
 				RetryIntervalBackoff: DefRetryIntervalBackoff,
 				RetryIntervalInitial: DefRetryIntervalInitial,
+				RateLimit:            DefRateLimit,
 			},
 		},
 		{
@@ -55,6 +57,7 @@ func TestInitConfig(t *testing.T) {
 				RetryAttempts:        DefRetryAttempts,
 				RetryIntervalBackoff: DefRetryIntervalBackoff,
 				RetryIntervalInitial: DefRetryIntervalInitial,
+				RateLimit:            DefRateLimit,
 			},
 		},
 		{
@@ -69,6 +72,7 @@ func TestInitConfig(t *testing.T) {
 				RetryAttempts:        DefRetryAttempts,
 				RetryIntervalBackoff: DefRetryIntervalBackoff,
 				RetryIntervalInitial: DefRetryIntervalInitial,
+				RateLimit:            DefRateLimit,
 			},
 		},
 	}

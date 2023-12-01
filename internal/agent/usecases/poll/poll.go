@@ -1,3 +1,7 @@
+// Package poll contains the functionality for polling system metrics at regular intervals.
+// It gathers various system metrics like memory and CPU utilization and encapsulates
+// them in a Snapshot structure.
+
 package poll
 
 import (
@@ -12,14 +16,29 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
+// Poller is responsible for periodically polling system metrics. It keeps track of the
+// number of polls and stores the latest metrics snapshot. Polling is done at intervals
+// defined by a Ticker and can be stopped via a Done channel.
 type Poller struct {
-	Logger    logging.ILogger
+	// Logger is used to log informational and error messages during polling operations.
+	Logger logging.ILogger
+
+	// PollCount keeps track of the number of times the system has been polled.
 	PollCount int64
-	Data      *entities.SnapshotWrapper
-	Ticker    *time.Ticker
-	Done      <-chan bool
+
+	// Data holds the current snapshot of the polled system metrics.
+	Data *entities.SnapshotWrapper
+
+	// Ticker controls the intervals at which the system metrics are polled.
+	Ticker *time.Ticker
+
+	// Done is a channel used to signal when polling should be stopped.
+	Done <-chan bool
 }
 
+// Poll continuously polls system metrics at intervals defined by the Poller's Ticker.
+// It logs each polling event and updates the current metrics snapshot. Polling can
+// be stopped by sending a signal on the Poller's Done channel.
 func (p *Poller) Poll() {
 	for {
 		select {

@@ -1,3 +1,6 @@
+// Package usecases provides methods for handling HTTP requests related to
+// metrics management in the monitoring application. It includes methods for
+// updating, retrieving, and batch processing metrics, as well as health checking.
 package usecases
 
 import (
@@ -9,7 +12,10 @@ import (
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 )
 
-func (c *BaseController) updateMetric(w http.ResponseWriter, r *http.Request) {
+// UpdateMetric handles the HTTP request for updating a metric.
+// It supports both JSON and form data, validates the input, and writes
+// the updated metric back to the response.
+func (c *BaseController) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	asJSON := r.Header.Get("Content-Type") == "application/json"
 	var metrics *common.Metrics
 	if metrics = parseMetric(r, asJSON, true); metrics == nil {
@@ -36,7 +42,10 @@ func (c *BaseController) updateMetric(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
+// GetMetric handles the HTTP request for retrieving a specific metric.
+// It supports both JSON and form data, validates the query, and writes
+// the metric data back to the response.
+func (c *BaseController) GetMetric(w http.ResponseWriter, r *http.Request) {
 	asJSON := r.Header.Get("Content-Type") == "application/json"
 	var metrics *common.Metrics
 	if metrics = parseMetric(r, asJSON, false); metrics == nil {
@@ -70,7 +79,9 @@ func (c *BaseController) getMetric(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *BaseController) getAllMetrics(w http.ResponseWriter, r *http.Request) {
+// GetAllMetrics handles the HTTP request for retrieving all metrics.
+// It renders the metrics in an HTML template and sends the result back to the response.
+func (c *BaseController) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	result, err := GetAllMetrics(r.Context(), c, "all_metrics.html")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -81,7 +92,9 @@ func (c *BaseController) getAllMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Write(result.Bytes())
 }
 
-func (c *BaseController) massUpdate(w http.ResponseWriter, r *http.Request) {
+// MassUpdate handles the HTTP request for updating a batch of metrics.
+// It only accepts JSON data, validates the input, and sends an appropriate response.
+func (c *BaseController) MassUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Supply data as JSON"))
@@ -117,7 +130,9 @@ func (c *BaseController) massUpdate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (c *BaseController) ping(w http.ResponseWriter, r *http.Request) {
+// Ping handles the HTTP request for checking the storage connectivity or liveliness.
+// It uses the Ping method of the storage and sends an appropriate response.
+func (c *BaseController) Ping(w http.ResponseWriter, r *http.Request) {
 	if err := c.Stor.Ping(r.Context()); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
