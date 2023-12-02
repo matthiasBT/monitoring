@@ -349,43 +349,83 @@ func TestDBKeeper_create(t *testing.T) {
 	}
 }
 
-// todo
 func TestDBKeeper_get(t *testing.T) {
 	type fields struct {
-		DB      *sql.DB
-		Logger  logging.ILogger
 		Retrier utils.Retrier
 		Lock    *sync.Mutex
-	}
-	type args struct {
-		ctx    context.Context
-		tx     *sql.Tx
-		search *common.Metrics
 	}
 	tests := []struct {
 		name    string
 		fields  fields
-		args    args
 		want    *common.Metrics
-		wantErr bool
+		wantErr error
 	}{
-		// TODO: Add test cases.
+		{
+			name: "one_row",
+			fields: fields{
+				Retrier: utils.Retrier{
+					Attempts:         2,
+					IntervalFirst:    100 * time.Millisecond,
+					IntervalIncrease: 100 * time.Millisecond,
+					Logger:           logging.SetupLogger(),
+				},
+				Lock: &sync.Mutex{},
+			},
+			want:    getMetricsRows()[0],
+			wantErr: nil,
+		},
+		{
+			name: "no_rows",
+			fields: fields{
+				Retrier: utils.Retrier{
+					Attempts:         2,
+					IntervalFirst:    100 * time.Millisecond,
+					IntervalIncrease: 100 * time.Millisecond,
+					Logger:           logging.SetupLogger(),
+				},
+				Lock: &sync.Mutex{},
+			},
+			want:    nil,
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("Error creating mock database: %v", err)
+			}
+			defer db.Close()
+			rows := sqlmock.NewRows([]string{"ID", "MType", "Delta", "Value"}).
+				AddRow("foo", "counter", "4", nil)
+			query := regexp.QuoteMeta("SELECT * FROM metrics WHERE id = $1 AND mtype = $2")
+			mock.ExpectPrepare(query)
+			if tt.want != nil {
+				mock.ExpectQuery(query).WillReturnRows(rows)
+			} else {
+				mock.ExpectQuery(query).WillReturnRows(sqlmock.NewRows([]string{}))
+			}
 			dbk := &DBKeeper{
-				DB:      tt.fields.DB,
-				Logger:  tt.fields.Logger,
+				DB:      db,
+				Logger:  logging.SetupLogger(),
 				Retrier: tt.fields.Retrier,
 				Lock:    tt.fields.Lock,
 			}
-			got, err := dbk.get(tt.args.ctx, tt.args.tx, tt.args.search)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("get() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			search := &common.Metrics{
+				ID:    "foo",
+				MType: "counter",
+				Delta: ptrint64(4),
+				Value: nil,
+			}
+			got, err := dbk.get(context.Background(), nil, search)
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("Got error: %v, want error: %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("get() got = %v, want %v", got, tt.want)
+				t.Errorf("Restore() = %v, want %v", got, tt.want)
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("Unfulfilled expectations: %s", err)
 			}
 		})
 	}
