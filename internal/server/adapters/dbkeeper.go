@@ -67,6 +67,7 @@ func (dbk *DBKeeper) Flush(ctx context.Context, storageSnapshot []*common.Metric
 		dbk.Logger.Errorf("Failed to open a transaction: %s\n", err.Error())
 	}
 	var tx = txAny.(*sql.Tx)
+	//nolint:errcheck
 	defer tx.Commit()
 
 	for _, metrics := range storageSnapshot {

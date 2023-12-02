@@ -1,7 +1,6 @@
 // Package poll contains the functionality for polling system metrics at regular intervals.
 // It gathers various system metrics like memory and CPU utilization and encapsulates
 // them in a Snapshot structure.
-
 package poll
 
 import (

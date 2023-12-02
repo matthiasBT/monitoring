@@ -2,7 +2,10 @@ package main
 
 import (
 	"go/ast"
+	"strings"
 
+	gocritic "github.com/go-critic/go-critic/checkers/analyzer"
+	"github.com/kisielk/errcheck/errcheck"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 	"golang.org/x/tools/go/analysis/passes/appends"
@@ -51,6 +54,9 @@ import (
 	"golang.org/x/tools/go/analysis/passes/unusedresult"
 	"golang.org/x/tools/go/analysis/passes/unusedwrite"
 	"golang.org/x/tools/go/analysis/passes/usesgenerics"
+	"honnef.co/go/tools/simple"
+	"honnef.co/go/tools/staticcheck"
+	"honnef.co/go/tools/stylecheck"
 )
 
 var osExitMainAnalyzer = &analysis.Analyzer{
@@ -101,7 +107,7 @@ func hasDirectOsExitCall(fnBody *ast.BlockStmt) bool {
 }
 
 func main() {
-	multichecker.Main(
+	var mychecks = []*analysis.Analyzer{
 		appends.Analyzer,
 		asmdecl.Analyzer,
 		assign.Analyzer,
@@ -148,7 +154,26 @@ func main() {
 		unusedresult.Analyzer,
 		unusedwrite.Analyzer,
 		usesgenerics.Analyzer,
-
 		osExitMainAnalyzer,
+	}
+	for _, a := range staticcheck.Analyzers {
+		if strings.HasPrefix(a.Analyzer.Name, "SA") {
+			mychecks = append(mychecks, a.Analyzer)
+		}
+	}
+	for _, a := range simple.Analyzers {
+		if strings.HasPrefix(a.Analyzer.Name, "S") {
+			mychecks = append(mychecks, a.Analyzer)
+		}
+	}
+	for _, a := range stylecheck.Analyzers {
+		if strings.HasPrefix(a.Analyzer.Name, "ST") {
+			mychecks = append(mychecks, a.Analyzer)
+		}
+	}
+	mychecks = append(mychecks, errcheck.Analyzer)
+	mychecks = append(mychecks, gocritic.Analyzer)
+	multichecker.Main(
+		mychecks...,
 	)
 }

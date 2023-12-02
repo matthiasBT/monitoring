@@ -1,7 +1,6 @@
 // Package agent provides the configuration setup for an agent application.
 // It includes structures and functions for initializing and managing
 // configuration settings.
-
 package agent
 
 import (

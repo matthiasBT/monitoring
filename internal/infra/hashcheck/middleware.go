@@ -1,7 +1,6 @@
 // Package hashcheck provides middleware for adding and verifying HMAC SHA256
 // hashes in HTTP requests and responses. It ensures the integrity of the data
 // transmitted over HTTP.
-
 package hashcheck
 
 import (

@@ -1,7 +1,6 @@
 // Package entities defines the data structures used for representing
 // metrics within the system. It includes the Metrics structure and associated
 // logic for validation and formatting.
-
 package entities
 
 import (
@@ -66,15 +65,16 @@ func (m Metrics) Validate(withValue bool) error {
 // the value as a float, and for counter types, it formats as an integer.
 func (m Metrics) ValueAsString() string {
 	var val string
-	if m.MType == TypeGauge {
+	switch m.MType {
+	case TypeGauge:
 		val = strconv.FormatFloat(*m.Value, 'f', -1, 64)
 		if !strings.Contains(val, ".") {
 			val += "."
 		}
-	} else if m.MType == TypeCounter {
+	case TypeCounter:
 		val = fmt.Sprintf("%d", *m.Delta)
-	} else {
-		return ""
+	default:
+		val = ""
 	}
 	return val
 }

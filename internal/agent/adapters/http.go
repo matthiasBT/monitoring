@@ -1,7 +1,6 @@
 // Package adapters provides functionalities to handle HTTP communication,
 // specifically for reporting metrics. It includes structures and methods
 // for sending reports, handling retries, and ensuring data integrity.
-
 package adapters
 
 import (
@@ -72,6 +71,7 @@ func NewHTTPReportAdapter(
 		go func() {
 			for {
 				data := <-jobs
+				//nolint:errcheck
 				adapter.report(&data)
 			}
 		}()

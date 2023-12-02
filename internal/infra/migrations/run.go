@@ -1,3 +1,4 @@
+// Package migrations contains code for launching postgresql migrations stored in the project
 package migrations
 
 import (

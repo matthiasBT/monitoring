@@ -1,6 +1,5 @@
 // Package compression provides middleware for handling gzip compression
 // and decompression in HTTP requests and responses.
-
 package compression
 
 import (
