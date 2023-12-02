@@ -1,3 +1,18 @@
+// Package main demonstrates the setup of a multichecker which integrates
+// various static analysis tools for Go code. This multichecker combines
+// standard analyzers from the golang.org/x/tools/go/analysis/passes package,
+// Staticcheck, Simple, Stylecheck, Errcheck, and Go-Critic checkers, along
+// with a custom analyzer.
+
+// The custom analyzer, osExitMainAnalyzer, checks for direct calls to
+// os.Exit within the main function, a practice generally discouraged as it
+// bypasses deferred function calls and can make cleanup and error handling
+// more complex.
+
+// This package iterates over a list of analyzers, appending them to a
+// multichecker instance. This approach allows for comprehensive static analysis
+// covering a wide range of common Go programming mistakes, style issues, and
+// potential bugs.
 package main
 
 import (
@@ -59,12 +74,18 @@ import (
 	"honnef.co/go/tools/stylecheck"
 )
 
+// osExitMainAnalyzer is a custom analyzer that checks for direct usages of
+// os.Exit in the main function. This is generally discouraged in Go as it
+// prevents deferred functions from running.
 var osExitMainAnalyzer = &analysis.Analyzer{
 	Name: "osExitMainAnalyzer",
 	Doc:  "Check for direct os.Exit calls in main functions",
 	Run:  run,
 }
 
+// osExitMainAnalyzer is a custom analyzer that checks for direct usages of
+// os.Exit in the main function. This is generally discouraged in Go as it
+// prevents deferred functions from running.
 func run(pass *analysis.Pass) (interface{}, error) {
 	for _, file := range pass.Files {
 		ast.Inspect(file, func(node ast.Node) bool {
@@ -81,6 +102,8 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	return nil, nil
 }
 
+// hasDirectOsExitCall checks if an AST node (function body) contains
+// a direct call to os.Exit.
 func hasDirectOsExitCall(fnBody *ast.BlockStmt) bool {
 	for _, stmt := range fnBody.List {
 		exprStmt, ok := stmt.(*ast.ExprStmt)
@@ -106,8 +129,16 @@ func hasDirectOsExitCall(fnBody *ast.BlockStmt) bool {
 	return false
 }
 
+// function main is the entrypoint of this program
+// in order to launch the program from the command line, execute the following commands:
+// $ go run cmd/staticlint/multichecker.go ./cmd/...
+// $ go run cmd/staticlint/multichecker.go ./internal/...
 func main() {
+	// main initializes and runs the multichecker with a comprehensive
+	// set of analyzers including standard, third-party, and custom analyzers.
 	var mychecks = []*analysis.Analyzer{
+		// all standard analyzers from "golang.org/x/tools/go/analysis/passes"
+		// refer to their documentation for more details
 		appends.Analyzer,
 		asmdecl.Analyzer,
 		assign.Analyzer,
@@ -154,25 +185,39 @@ func main() {
 		unusedresult.Analyzer,
 		unusedwrite.Analyzer,
 		usesgenerics.Analyzer,
+
+		// the custom analyzer (see above)
 		osExitMainAnalyzer,
 	}
+
+	// enabling all SA-analyzers from staticcheck
 	for _, a := range staticcheck.Analyzers {
 		if strings.HasPrefix(a.Analyzer.Name, "SA") {
 			mychecks = append(mychecks, a.Analyzer)
 		}
 	}
+
+	// enabling all S-analyzers from staticcheck
 	for _, a := range simple.Analyzers {
 		if strings.HasPrefix(a.Analyzer.Name, "S") {
 			mychecks = append(mychecks, a.Analyzer)
 		}
 	}
+
+	// enabling all ST-analyzers from staticcheck
 	for _, a := range stylecheck.Analyzers {
 		if strings.HasPrefix(a.Analyzer.Name, "ST") {
 			mychecks = append(mychecks, a.Analyzer)
 		}
 	}
+
+	// enabling the errcheck analyzer
 	mychecks = append(mychecks, errcheck.Analyzer)
+
+	// enabling the gocritic analyzer
 	mychecks = append(mychecks, gocritic.Analyzer)
+
+	// launch the analyzers
 	multichecker.Main(
 		mychecks...,
 	)
