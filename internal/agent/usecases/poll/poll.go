@@ -23,9 +23,6 @@ type Poller struct {
 	// Logger is used to log informational and error messages during polling operations.
 	Logger logging.ILogger
 
-	// PollCount keeps track of the number of times the system has been polled.
-	PollCount int64
-
 	// Data holds the current snapshot of the polled system metrics.
 	Data *entities.SnapshotWrapper
 
@@ -34,6 +31,9 @@ type Poller struct {
 
 	// Done is a channel used to signal when polling should be stopped.
 	Done <-chan bool
+
+	// PollCount keeps track of the number of times the system has been polled.
+	PollCount int64
 }
 
 // Poll continuously polls system metrics at intervals defined by the Poller's Ticker.

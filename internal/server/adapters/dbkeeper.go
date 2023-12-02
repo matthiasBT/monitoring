@@ -23,9 +23,9 @@ import (
 // synchronizing operations.
 type DBKeeper struct {
 	DB      *sql.DB         // Database connection
+	Lock    *sync.Mutex     // Mutex for synchronization
 	Logger  logging.ILogger // Logger for logging activities
 	Retrier utils.Retrier   // Retrier for retry logic
-	Lock    *sync.Mutex     // Mutex for synchronization
 }
 
 // NewDBKeeper creates and returns a new DBKeeper instance with the provided configuration,

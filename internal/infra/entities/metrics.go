@@ -26,17 +26,17 @@ var (
 // Metrics represents a single metric data point, including its identifier,
 // type, and value. It supports both gauge and counter metric types.
 type Metrics struct {
-	// ID is the unique identifier of the metric.
-	ID string `json:"id"`
-
-	// MType is the type of the metric, such as gauge or counter.
-	MType string `json:"type"`
-
 	// Delta is used for counter metrics to represent a change in value.
 	Delta *int64 `json:"delta,omitempty"`
 
 	// Value is used for gauge metrics to represent a measurement value.
 	Value *float64 `json:"value,omitempty"`
+
+	// ID is the unique identifier of the metric.
+	ID string `json:"id"`
+
+	// MType is the type of the metric, such as gauge or counter.
+	MType string `json:"type"`
 }
 
 // Validate checks the validity of the metric based on its type and the presence
