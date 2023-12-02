@@ -20,6 +20,12 @@ import (
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
 )
 
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
 // setupRetrier configures and returns a Retrier based on the provided agent configuration.
 // It sets up retry attempts, intervals, and logging for handling network-related retries.
 func setupRetrier(conf *agent.Config, logger logging.ILogger) utils.Retrier {
@@ -35,6 +41,8 @@ func setupRetrier(conf *agent.Config, logger logging.ILogger) utils.Retrier {
 // data reporting, and polling mechanisms. It orchestrates the agent's lifecycle,
 // including handling graceful shutdowns.
 func main() {
+	utils.PrintBuildFlags(buildVersion, buildDate, buildCommit)
+
 	logger := logging.SetupLogger()
 	conf, err := agent.InitConfig()
 	if err != nil {
