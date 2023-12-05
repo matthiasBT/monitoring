@@ -1,7 +1,6 @@
 // Package adapters provides functionalities to handle HTTP communication,
 // specifically for reporting metrics. It includes structures and methods
 // for sending reports, handling retries, and ensuring data integrity.
-
 package adapters
 
 import (
@@ -28,20 +27,20 @@ type HTTPReportAdapter struct {
 	// Logger is used for logging messages related to HTTP reporting activities.
 	Logger logging.ILogger
 
+	// jobs is an internal channel used to queue payloads for reporting.
+	jobs chan []byte
+
 	// ServerAddr specifies the HTTP server address where reports are sent.
 	ServerAddr string
 
 	// UpdateURL is the endpoint for updating or sending reports.
 	UpdateURL string
 
-	// Retrier is used to handle retries for HTTP requests in case of failures.
-	Retrier utils.Retrier
-
 	// HMACKey is the key used for HMAC-SHA256 hashing to ensure data integrity.
 	HMACKey []byte
 
-	// jobs is an internal channel used to queue payloads for reporting.
-	jobs chan []byte
+	// Retrier is used to handle retries for HTTP requests in case of failures.
+	Retrier utils.Retrier
 }
 
 // ErrResponseNotOK is an error indicating that the HTTP response status is not OK (200).
@@ -72,6 +71,7 @@ func NewHTTPReportAdapter(
 		go func() {
 			for {
 				data := <-jobs
+				//nolint:errcheck
 				adapter.report(&data)
 			}
 		}()
@@ -112,13 +112,14 @@ func (r *HTTPReportAdapter) report(payload *[]byte) error {
 	if req, err = r.createRequest(u, payload); err != nil {
 		return err
 	}
-	if err := r.addHMACHeader(req, payload); err != nil {
+	if err = r.addHMACHeader(req, payload); err != nil {
 		return err
 	}
 
 	f := func() (any, error) {
 		client := &http.Client{}
-		resp, err := client.Do(req)
+		var resp *http.Response
+		resp, err = client.Do(req)
 		if err != nil {
 			r.Logger.Errorf("Request failed: %v\n", err.Error())
 			return nil, err
@@ -128,7 +129,8 @@ func (r *HTTPReportAdapter) report(payload *[]byte) error {
 			return nil, ErrResponseNotOK
 		}
 		defer resp.Body.Close()
-		body, err := io.ReadAll(resp.Body)
+		var body []byte
+		body, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}

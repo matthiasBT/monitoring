@@ -1,7 +1,6 @@
 // Package agent provides the configuration setup for an agent application.
 // It includes structures and functions for initializing and managing
 // configuration settings.
-
 package agent
 
 import (
@@ -32,14 +31,14 @@ type Config struct {
 	// UpdateURL is the URL endpoint for sending updates.
 	UpdateURL string
 
+	// HMACKey is used for HMAC-based integrity checks.
+	HMACKey string `env:"KEY"`
+
 	// ReportInterval specifies how often (in seconds) the agent sends metrics to the server.
 	ReportInterval uint `env:"REPORT_INTERVAL"`
 
 	// PollInterval specifies how often (in seconds) the agent queries for metrics.
 	PollInterval uint `env:"POLL_INTERVAL"`
-
-	// HMACKey is used for HMAC-based integrity checks.
-	HMACKey string `env:"KEY"`
 
 	// RateLimit defines the maximum number of active workers for processing.
 	RateLimit uint `env:"RATE_LIMIT"`

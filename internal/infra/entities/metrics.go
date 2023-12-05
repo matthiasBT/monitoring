@@ -1,7 +1,6 @@
 // Package entities defines the data structures used for representing
 // metrics within the system. It includes the Metrics structure and associated
 // logic for validation and formatting.
-
 package entities
 
 import (
@@ -26,17 +25,17 @@ var (
 // Metrics represents a single metric data point, including its identifier,
 // type, and value. It supports both gauge and counter metric types.
 type Metrics struct {
-	// ID is the unique identifier of the metric.
-	ID string `json:"id"`
-
-	// MType is the type of the metric, such as gauge or counter.
-	MType string `json:"type"`
-
 	// Delta is used for counter metrics to represent a change in value.
 	Delta *int64 `json:"delta,omitempty"`
 
 	// Value is used for gauge metrics to represent a measurement value.
 	Value *float64 `json:"value,omitempty"`
+
+	// ID is the unique identifier of the metric.
+	ID string `json:"id"`
+
+	// MType is the type of the metric, such as gauge or counter.
+	MType string `json:"type"`
 }
 
 // Validate checks the validity of the metric based on its type and the presence
@@ -66,15 +65,16 @@ func (m Metrics) Validate(withValue bool) error {
 // the value as a float, and for counter types, it formats as an integer.
 func (m Metrics) ValueAsString() string {
 	var val string
-	if m.MType == TypeGauge {
+	switch m.MType {
+	case TypeGauge:
 		val = strconv.FormatFloat(*m.Value, 'f', -1, 64)
 		if !strings.Contains(val, ".") {
 			val += "."
 		}
-	} else if m.MType == TypeCounter {
+	case TypeCounter:
 		val = fmt.Sprintf("%d", *m.Delta)
-	} else {
-		return ""
+	default:
+		val = ""
 	}
 	return val
 }

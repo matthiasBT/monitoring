@@ -23,9 +23,9 @@ import (
 // synchronizing operations.
 type DBKeeper struct {
 	DB      *sql.DB         // Database connection
+	Lock    *sync.Mutex     // Mutex for synchronization
 	Logger  logging.ILogger // Logger for logging activities
 	Retrier utils.Retrier   // Retrier for retry logic
-	Lock    *sync.Mutex     // Mutex for synchronization
 }
 
 // NewDBKeeper creates and returns a new DBKeeper instance with the provided configuration,
@@ -67,6 +67,7 @@ func (dbk *DBKeeper) Flush(ctx context.Context, storageSnapshot []*common.Metric
 		dbk.Logger.Errorf("Failed to open a transaction: %s\n", err.Error())
 	}
 	var tx = txAny.(*sql.Tx)
+	//nolint:errcheck
 	defer tx.Commit()
 
 	for _, metrics := range storageSnapshot {

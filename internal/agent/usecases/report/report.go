@@ -1,7 +1,6 @@
 // Package report contains the functionalities for reporting system metrics.
 // It includes structures and methods for periodically gathering and sending
 // metrics to a specified reporting service.
-
 package report
 
 import (

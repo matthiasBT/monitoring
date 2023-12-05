@@ -1,6 +1,5 @@
 // Package entities defines data structures and interfaces used for representing
 // and reporting monitoring data in the monitoring system.
-
 package entities
 
 import "github.com/matthiasBT/monitoring/internal/infra/entities"

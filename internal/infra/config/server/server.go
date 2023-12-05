@@ -1,7 +1,6 @@
 // Package server contains the configuration and initialization logic for a server application.
 // It defines structures and functions for setting up server configuration including
 // storage, restoration, and retry logic.
-
 package server
 
 import (

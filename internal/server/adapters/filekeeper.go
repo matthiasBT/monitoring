@@ -21,10 +21,10 @@ import (
 // the path to the file storage, a retrier for handling retry logic, and a mutex for
 // synchronizing operations.
 type FileKeeper struct {
-	Logger  logging.ILogger // Logger for logging activities
-	Path    string          // Path to the file storage
-	Retrier utils.Retrier   // Retrier for retry logic
 	Lock    *sync.Mutex     // Mutex for synchronization
+	Path    string          // Path to the file storage
+	Logger  logging.ILogger // Logger for logging activities
+	Retrier utils.Retrier   // Retrier for retry logic
 }
 
 // NewFileKeeper creates and returns a new FileKeeper instance with the provided configuration,
@@ -54,12 +54,14 @@ func (fs *FileKeeper) Flush(ctx context.Context, storageSnapshot []*common.Metri
 	defer file.Close()
 
 	for _, metrics := range storageSnapshot {
-		body, err := json.Marshal(metrics)
+		var err error
+		var body []byte
+		body, err = json.Marshal(metrics)
 		if err != nil {
 			fs.Logger.Errorf("Failed to marshal a metric: %s, %s\n", metrics.ID, err.Error())
 			return err
 		}
-		if _, err := file.Write(body); err != nil {
+		if _, err = file.Write(body); err != nil {
 			fs.Logger.Errorf("Failed to write a metric to the file %s\n", err.Error())
 			return err
 		}

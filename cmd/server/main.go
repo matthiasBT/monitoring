@@ -24,6 +24,12 @@ import (
 	"github.com/matthiasBT/monitoring/internal/server/usecases"
 )
 
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
 // setupServer configures and returns a new HTTP router with middleware and routes.
 // It includes logging, compression, optional HMAC checking, and controller routes.
 func setupServer(logger logging.ILogger, controller *usecases.BaseController, hmacKey string) *chi.Mux {
@@ -91,6 +97,8 @@ func setupTicker(conf *server.Config) <-chan time.Time {
 // including configuration, logging, storage, and routing. It also manages the application's lifecycle,
 // handling initialization and graceful shutdown.
 func main() {
+	utils.PrintBuildFlags(buildVersion, buildDate, buildCommit)
+
 	logger := logging.SetupLogger()
 	conf, err := server.InitConfig()
 	if err != nil {
