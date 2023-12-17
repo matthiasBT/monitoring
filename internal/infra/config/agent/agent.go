@@ -39,8 +39,8 @@ type Config struct {
 	// HMACKey is used for HMAC-based integrity checks.
 	HMACKey string `env:"KEY"`
 
-	// ServerPublicKeyPath is the public key of the monitoring server
-	ServerPublicKeyPath string `env:"CRYPTO_KEY"`
+	// CryptoKey is the public key of the monitoring server
+	CryptoKey string `env:"CRYPTO_KEY"`
 
 	// ReportInterval specifies how often (in seconds) the agent sends metrics to the server.
 	ReportInterval uint `env:"REPORT_INTERVAL"`
@@ -63,11 +63,11 @@ type Config struct {
 
 // ReadServerPublicKey reads a file and return an RSA private key
 func (c *Config) ReadServerPublicKey() (*rsa.PublicKey, error) {
-	if c.ServerPublicKeyPath == "" {
+	if c.CryptoKey == "" {
 		return nil, nil
 	}
 
-	data, err := os.ReadFile(c.ServerPublicKeyPath)
+	data, err := os.ReadFile(c.CryptoKey)
 	if err != nil {
 		return nil, err
 	}
@@ -95,36 +95,18 @@ func (c *Config) ReadServerPublicKey() (*rsa.PublicKey, error) {
 // the configuration for the agent.
 func InitConfig() (*Config, error) {
 	conf := new(Config)
+	flag.StringVar(&conf.Addr, "a", DefAddr, "Server address. Usage: -a=host:port")
+	flag.UintVar(
+		&conf.ReportInterval, "r", DefReportInterval, "How often to send metrics to the server, seconds",
+	)
+	flag.UintVar(&conf.PollInterval, "p", DefPollInterval, "How often to query metrics, seconds")
+	flag.StringVar(&conf.HMACKey, "k", "", "HMAC key for integrity checks")
+	flag.StringVar(&conf.CryptoKey, "crypto-key", "", "Path to a file with the server public key")
+	flag.UintVar(&conf.RateLimit, "l", DefRateLimit, "Max number of active workers")
+	flag.Parse()
 	err := env.Parse(conf)
 	if err != nil {
 		return nil, err
-	}
-	addr := flag.String("a", DefAddr, "Server address. Usage: -a=host:port")
-	reportInterval := flag.Uint(
-		"r", DefReportInterval, "How often to send metrics to the server, seconds",
-	)
-	pollInterval := flag.Uint("p", DefPollInterval, "How often to query metrics, seconds")
-	hmacKey := flag.String("k", "", "HMAC key for integrity checks")
-	cryptoKey := flag.String("crypto-key", "", "Path to a file with the server public key")
-	rateLimit := flag.Uint("l", DefRateLimit, "Max number of active workers")
-	flag.Parse()
-	if conf.Addr == "" {
-		conf.Addr = *addr
-	}
-	if conf.ReportInterval == 0 {
-		conf.ReportInterval = *reportInterval
-	}
-	if conf.PollInterval == 0 {
-		conf.PollInterval = *pollInterval
-	}
-	if conf.HMACKey == "" {
-		conf.HMACKey = *hmacKey
-	}
-	if conf.ServerPublicKeyPath == "" {
-		conf.ServerPublicKeyPath = *cryptoKey
-	}
-	if conf.RateLimit == 0 {
-		conf.RateLimit = *rateLimit
 	}
 	conf.UpdateURL = updateURL
 	conf.RetryAttempts = DefRetryAttempts

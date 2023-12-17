@@ -35,13 +35,13 @@ type Config struct {
 	TemplatePath string
 
 	// StoreInterval specifies the interval (in seconds) for storing data to the file.
-	StoreInterval *uint `env:"STORE_INTERVAL"`
+	StoreInterval uint `env:"STORE_INTERVAL"`
 
 	// FileStoragePath is the file path for storing metrics data.
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 
 	// Restore indicates whether to restore the initial state from the file.
-	Restore *bool `env:"RESTORE"`
+	Restore bool `env:"RESTORE"`
 
 	// DatabaseDSN is the Data Source Name for connecting to a PostgreSQL database.
 	DatabaseDSN string `env:"DATABASE_DSN"`
@@ -49,8 +49,8 @@ type Config struct {
 	// HMACKey is used for HMAC-based integrity checks.
 	HMACKey string `env:"KEY"`
 
-	// PrivateKeyPath is used for payload decryption
-	PrivateKeyPath string `env:"CRYPTO_KEY"`
+	// CryptoKey is used for payload decryption
+	CryptoKey string `env:"CRYPTO_KEY"`
 
 	// RetryAttempts is the number of retry attempts for failed requests.
 	RetryAttempts int
@@ -64,11 +64,11 @@ type Config struct {
 
 // ReadPrivateKey reads a file and returns an RSA private key
 func (c *Config) ReadPrivateKey() (*rsa.PrivateKey, error) {
-	if c.PrivateKeyPath == "" {
+	if c.CryptoKey == "" {
 		return nil, nil
 	}
 
-	data, err := os.ReadFile(c.PrivateKeyPath)
+	data, err := os.ReadFile(c.CryptoKey)
 	if err != nil {
 		return nil, err
 	}
@@ -87,58 +87,29 @@ func (c *Config) ReadPrivateKey() (*rsa.PrivateKey, error) {
 // the server configuration.
 func InitConfig() (*Config, error) {
 	conf := new(Config)
+	flag.StringVar(&conf.Addr, "a", DefAddr, "Server address. Usage: -a=host:port")
+	flag.StringVar(&conf.FileStoragePath, "f", DefFileStoragePath, "Path to storage file")
+	flag.StringVar(&conf.DatabaseDSN, "d", "", "PostgreSQL database DSN")
+	flag.BoolVar(&conf.Restore, "r", DefRestore, "Restore init state from the file (see -f flag)")
+	flag.UintVar(&conf.StoreInterval, "i", DefStoreInterval, "How often to store data in the file")
+	flag.StringVar(&conf.HMACKey, "k", "", "HMAC key for integrity checks")
+	flag.StringVar(&conf.CryptoKey, "crypto-key", "", "Path to a file with the server private key")
+	flag.Parse()
 	err := env.Parse(conf)
 	if err != nil {
 		return nil, err
 	}
-
 	conf.TemplatePath = templatePath
 	conf.RetryAttempts = DefRetryAttempts
 	conf.RetryIntervalInitial = DefRetryIntervalInitial
 	conf.RetryIntervalBackoff = DefRetryIntervalBackoff
-
-	flagAddr := flag.String("a", DefAddr, "Server address. Usage: -a=host:port")
-
-	var flagStoragePath string
-	flag.StringVar(&flagStoragePath, "f", DefFileStoragePath, "Path to storage file")
-
-	var flagDatabaseDSN string
-	flag.StringVar(&flagDatabaseDSN, "d", "", "PostgreSQL database DSN")
-
-	flagRestore := flag.Bool("r", DefRestore, "Restore init state from the file (see -f flag)")
-	flagStoreInterval := flag.Uint("i", DefStoreInterval, "How often to store data in the file")
-	hmacKey := flag.String("k", "", "HMAC key for integrity checks")
-	cryptoKey := flag.String("crypto-key", "", "Path to a file with the server private key")
-	flag.Parse()
-
-	if conf.Addr == "" {
-		conf.Addr = *flagAddr
-	}
-	if conf.FileStoragePath == "" {
-		conf.FileStoragePath = flagStoragePath
-	}
-	if conf.DatabaseDSN == "" {
-		conf.DatabaseDSN = flagDatabaseDSN
-	}
-	if conf.Restore == nil {
-		conf.Restore = flagRestore
-	}
-	if conf.StoreInterval == nil {
-		conf.StoreInterval = flagStoreInterval
-	}
-	if conf.HMACKey == "" {
-		conf.HMACKey = *hmacKey
-	}
-	if conf.PrivateKeyPath == "" {
-		conf.PrivateKeyPath = *cryptoKey
-	}
 	return conf, nil
 }
 
 // FlushesSync determines if the server is configured to flush data synchronously.
 // Returns true if the StoreInterval is set to 0, indicating synchronous flush.
 func (c *Config) FlushesSync() bool {
-	return *c.StoreInterval == 0
+	return c.StoreInterval == 0
 }
 
 // Flushes checks whether the server is configured to flush data to storage.

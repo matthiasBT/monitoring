@@ -94,7 +94,7 @@ func setupTicker(conf *server.Config) <-chan time.Time {
 	if conf.FlushesSync() {
 		return make(chan time.Time) // will never be used
 	} else {
-		ticker := time.NewTicker(time.Duration(*conf.StoreInterval) * time.Second)
+		ticker := time.NewTicker(time.Duration(conf.StoreInterval) * time.Second)
 		return ticker.C
 	}
 }
@@ -122,7 +122,7 @@ func main() {
 	storage := adapters.NewMemStorage(done, tickerChan, logger, keeper)
 
 	if conf.Flushes() {
-		if *conf.Restore {
+		if conf.Restore {
 			state := keeper.Restore()
 			storage.Init(state)
 		}
