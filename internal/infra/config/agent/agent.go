@@ -6,6 +6,7 @@ package agent
 import (
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -30,8 +31,11 @@ const (
 // server address, update URL, intervals for reporting and polling metrics,
 // HMAC key for integrity checks, rate limits, and retry settings.
 type Config struct {
+	// ConfigPath is the path of a JSON configuration file
+	ConfigPath string `env:"CONFIG"`
+
 	// Addr represents the server address to which the agent connects.
-	Addr string `env:"ADDRESS"`
+	Addr string `env:"ADDRESS" json:"address"`
 
 	// UpdateURL is the URL endpoint for sending updates.
 	UpdateURL string
@@ -40,13 +44,13 @@ type Config struct {
 	HMACKey string `env:"KEY"`
 
 	// CryptoKey is the public key of the monitoring server
-	CryptoKey string `env:"CRYPTO_KEY"`
+	CryptoKey string `env:"CRYPTO_KEY" json:"crypto_key"`
 
 	// ReportInterval specifies how often (in seconds) the agent sends metrics to the server.
-	ReportInterval uint `env:"REPORT_INTERVAL"`
+	ReportInterval uint `env:"REPORT_INTERVAL" json:"report_interval"`
 
 	// PollInterval specifies how often (in seconds) the agent queries for metrics.
-	PollInterval uint `env:"POLL_INTERVAL"`
+	PollInterval uint `env:"POLL_INTERVAL" json:"poll_interval"`
 
 	// RateLimit defines the maximum number of active workers for processing.
 	RateLimit uint `env:"RATE_LIMIT"`
@@ -95,6 +99,7 @@ func (c *Config) ReadServerPublicKey() (*rsa.PublicKey, error) {
 // the configuration for the agent.
 func InitConfig() (*Config, error) {
 	conf := new(Config)
+	flag.StringVar(&conf.ConfigPath, "c", "", "Configuration file path")
 	flag.StringVar(&conf.Addr, "a", DefAddr, "Server address. Usage: -a=host:port")
 	flag.UintVar(
 		&conf.ReportInterval, "r", DefReportInterval, "How often to send metrics to the server, seconds",
@@ -104,6 +109,19 @@ func InitConfig() (*Config, error) {
 	flag.StringVar(&conf.CryptoKey, "crypto-key", "", "Path to a file with the server public key")
 	flag.UintVar(&conf.RateLimit, "l", DefRateLimit, "Max number of active workers")
 	flag.Parse()
+	if jsonConfigPath, ok := os.LookupEnv("CONFIG"); ok {
+		conf.ConfigPath = jsonConfigPath
+	}
+	if conf.ConfigPath != "" {
+		raw, err := os.ReadFile(conf.ConfigPath)
+		if err != nil {
+			panic(err)
+		}
+		if err := json.Unmarshal(raw, conf); err != nil {
+			panic(err)
+		}
+		flag.Parse()
+	}
 	err := env.Parse(conf)
 	if err != nil {
 		return nil, err
