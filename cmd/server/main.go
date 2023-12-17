@@ -53,11 +53,11 @@ func setupServer(
 // It listens for system signals and shuts down the server after processing ongoing requests.
 func gracefulShutdown(srv *http.Server, done chan struct{}, logger logging.ILogger) {
 	quitChannel := make(chan os.Signal, 1)
-	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	sig := <-quitChannel
 	logger.Infof("Received signal: %v\n", sig)
 	done <- struct{}{}
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	if err := srv.Shutdown(context.Background()); err != nil {
 		log.Fatalf("Server shutdown failed: %v\n", err.Error())
