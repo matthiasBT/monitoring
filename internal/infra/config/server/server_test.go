@@ -189,10 +189,60 @@ func TestFlushes(t *testing.T) {
 	}
 }
 
-func ptruint(val uint) *uint {
-	return &val
-}
+func TestInitConfigWithJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		cmdArgs  []string
+		envs     map[string]string
+		jsonArgs string
+		want     Config
+	}{
+		{
+			name: "priority: env > cmd > json > default",
+			cmdArgs: []string{
+				"test",
+				"-a", "0.0.0.0:8901",
+				"-c", "/tmp/test-monitoring-server-config-priority-cmd.json",
+			},
+			envs: map[string]string{
+				"CONFIG": "/tmp/test-monitoring-server-config-priority-env.json",
+			},
+			jsonArgs: `{"address":"0.0.0.0:9001","crypto_key":"max.key"}`,
+			want: Config{
+				ConfigPath:           "/tmp/test-monitoring-server-config-priority-env.json", // from env
+				Addr:                 "0.0.0.0:8901",                                         // from cmd
+				CryptoKey:            "max.key",                                              // from JSON
+				StoreInterval:        DefStoreInterval,
+				FileStoragePath:      DefFileStoragePath,
+				Restore:              DefRestore,
+				TemplatePath:         templatePath,
+				RetryAttempts:        DefRetryAttempts,
+				RetryIntervalBackoff: DefRetryIntervalBackoff,
+				RetryIntervalInitial: DefRetryIntervalInitial,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpFile, err := os.Create("/tmp/test-monitoring-server-config-priority-env.json")
+			if err != nil {
+				t.Fatalf("Failed to create temporary file: %v", err)
+			}
+			defer os.Remove(tmpFile.Name()) // Clean up after the test
+			if _, err := tmpFile.Write([]byte(tt.jsonArgs)); err != nil {
+				t.Fatalf("Failed to write to temporary file: %v", err)
+			}
+			if err := tmpFile.Close(); err != nil {
+				t.Fatalf("Failed to close temporary file: %v", err)
+			}
 
-func ptrbool(val bool) *bool {
-	return &val
+			os.Args = tt.cmdArgs
+			flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+			for name, val := range tt.envs {
+				t.Setenv(name, val)
+			}
+			got, _ := InitConfig()
+			assert.Equal(t, *got, tt.want, "Agent configuration is different")
+		})
+	}
 }
