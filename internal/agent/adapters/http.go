@@ -6,7 +6,11 @@ package adapters
 import (
 	"bytes"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/hmac"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -39,6 +43,9 @@ type HTTPReportAdapter struct {
 	// HMACKey is the key used for HMAC-SHA256 hashing to ensure data integrity.
 	HMACKey []byte
 
+	// CryptoKey is the key used for payload encryption
+	CryptoKey *rsa.PublicKey
+
 	// Retrier is used to handle retries for HTTP requests in case of failures.
 	Retrier utils.Retrier
 }
@@ -55,6 +62,7 @@ func NewHTTPReportAdapter(
 	updateURL string,
 	retrier utils.Retrier,
 	hmacKey []byte,
+	cryptoKey *rsa.PublicKey,
 	workerNum uint,
 ) *HTTPReportAdapter {
 	jobs := make(chan []byte, workerNum)
@@ -64,6 +72,7 @@ func NewHTTPReportAdapter(
 		UpdateURL:  updateURL,
 		Retrier:    retrier,
 		HMACKey:    hmacKey,
+		CryptoKey:  cryptoKey,
 		jobs:       jobs,
 	}
 	var i uint
@@ -72,7 +81,7 @@ func NewHTTPReportAdapter(
 			for {
 				data := <-jobs
 				//nolint:errcheck
-				adapter.report(&data)
+				adapter.report(data)
 			}
 		}()
 	}
@@ -103,12 +112,18 @@ func (r *HTTPReportAdapter) ReportBatch(batch []*common.Metrics) error {
 	return nil
 }
 
-func (r *HTTPReportAdapter) report(payload *[]byte) error {
+func (r *HTTPReportAdapter) report(payload []byte) error {
 	var (
 		req *http.Request
 		err error
 	)
 	u := url.URL{Scheme: "http", Host: r.ServerAddr, Path: r.UpdateURL}
+	if r.CryptoKey != nil {
+		payload, err = r.encryptData(payload)
+		if err != nil {
+			return err
+		}
+	}
 	if req, err = r.createRequest(u, payload); err != nil {
 		return err
 	}
@@ -145,8 +160,8 @@ func (r *HTTPReportAdapter) report(payload *[]byte) error {
 	return nil
 }
 
-func (r *HTTPReportAdapter) createRequest(path url.URL, payload *[]byte) (*http.Request, error) {
-	req, err := http.NewRequest("POST", path.String(), bytes.NewReader(*payload))
+func (r *HTTPReportAdapter) createRequest(path url.URL, payload []byte) (*http.Request, error) {
+	req, err := http.NewRequest("POST", path.String(), bytes.NewReader(payload))
 	if err != nil {
 		r.Logger.Errorf("Failed to create a request: %v\n", err.Error())
 		return nil, err
@@ -155,7 +170,7 @@ func (r *HTTPReportAdapter) createRequest(path url.URL, payload *[]byte) (*http.
 	return req, nil
 }
 
-func (r *HTTPReportAdapter) addHMACHeader(req *http.Request, payload *[]byte) error {
+func (r *HTTPReportAdapter) addHMACHeader(req *http.Request, payload []byte) error {
 	if hash, err := r.hashData(payload); err != nil {
 		return err
 	} else if hash != "" {
@@ -164,12 +179,12 @@ func (r *HTTPReportAdapter) addHMACHeader(req *http.Request, payload *[]byte) er
 	return nil
 }
 
-func (r *HTTPReportAdapter) hashData(payload *[]byte) (string, error) {
+func (r *HTTPReportAdapter) hashData(payload []byte) (string, error) {
 	if bytes.Equal(r.HMACKey, []byte{}) {
 		return "", nil
 	}
 	mac := hmac.New(sha256.New, r.HMACKey)
-	if _, err := mac.Write(*payload); err != nil {
+	if _, err := mac.Write(payload); err != nil {
 		r.Logger.Errorf("Failed to calculate hash: %v", err.Error())
 		return "", err
 	}
@@ -177,4 +192,41 @@ func (r *HTTPReportAdapter) hashData(payload *[]byte) (string, error) {
 	result := hex.EncodeToString(hash)
 	r.Logger.Infof("HMAC-SHA256 hash: %s\n", result)
 	return result, nil
+}
+
+func (r *HTTPReportAdapter) encryptData(payload []byte) ([]byte, error) {
+	key, encryptedPayload, err := encryptAES(payload)
+	if err != nil {
+		r.Logger.Errorf("Error encrypting message: %v", err)
+		return nil, err
+	}
+	encryptedKey, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, r.CryptoKey, key, nil)
+	if err != nil {
+		r.Logger.Errorf("Error encrypting AES key: %v", err)
+		return nil, err
+	}
+	return append(encryptedKey, encryptedPayload...), nil
+}
+
+func encryptAES(plaintext []byte) ([]byte, []byte, error) {
+	key := make([]byte, 32) // AES-256
+	if _, err := rand.Read(key); err != nil {
+		return nil, nil, err
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
+	iv := ciphertext[:aes.BlockSize]
+	if _, err := rand.Read(iv); err != nil {
+		return nil, nil, err
+	}
+
+	stream := cipher.NewCFBEncrypter(block, iv)
+	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+
+	return key, ciphertext, nil
 }

@@ -51,6 +51,10 @@ func main() {
 	done := make(<-chan bool)
 	dataExchange := entities.SnapshotWrapper{CurrSnapshot: nil}
 	retrier := setupRetrier(conf, logger)
+	publicKey, err := conf.ReadServerPublicKey()
+	if err != nil {
+		panic(err)
+	}
 	reporter := report.Reporter{
 		Logger: logger,
 		Data:   &dataExchange,
@@ -62,6 +66,7 @@ func main() {
 			conf.UpdateURL,
 			retrier,
 			[]byte(conf.HMACKey),
+			publicKey,
 			conf.RateLimit,
 		),
 	}

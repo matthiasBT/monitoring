@@ -4,7 +4,11 @@
 package server
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"flag"
+	"os"
 	"time"
 
 	"github.com/caarlos0/env/v9"
@@ -45,6 +49,9 @@ type Config struct {
 	// HMACKey is used for HMAC-based integrity checks.
 	HMACKey string `env:"KEY"`
 
+	// PrivateKeyPath is used for payload decryption
+	PrivateKeyPath string `env:"CRYPTO_KEY"`
+
 	// RetryAttempts is the number of retry attempts for failed requests.
 	RetryAttempts int
 
@@ -53,6 +60,26 @@ type Config struct {
 
 	// RetryIntervalBackoff is the duration for exponential backoff between retries.
 	RetryIntervalBackoff time.Duration
+}
+
+// ReadPrivateKey reads a file and returns an RSA private key
+func (c *Config) ReadPrivateKey() (*rsa.PrivateKey, error) {
+	if c.PrivateKeyPath == "" {
+		return nil, nil
+	}
+
+	data, err := os.ReadFile(c.PrivateKeyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(data)
+
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return key.(*rsa.PrivateKey), nil
 }
 
 // InitConfig initializes the Config structure by parsing environment variables
@@ -81,6 +108,7 @@ func InitConfig() (*Config, error) {
 	flagRestore := flag.Bool("r", DefRestore, "Restore init state from the file (see -f flag)")
 	flagStoreInterval := flag.Uint("i", DefStoreInterval, "How often to store data in the file")
 	hmacKey := flag.String("k", "", "HMAC key for integrity checks")
+	cryptoKey := flag.String("crypto-key", "", "Path to a file with the server private key")
 	flag.Parse()
 
 	if conf.Addr == "" {
@@ -100,6 +128,9 @@ func InitConfig() (*Config, error) {
 	}
 	if conf.HMACKey == "" {
 		conf.HMACKey = *hmacKey
+	}
+	if conf.PrivateKeyPath == "" {
+		conf.PrivateKeyPath = *cryptoKey
 	}
 	return conf, nil
 }

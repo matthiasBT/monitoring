@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"log"
 	"net/http"
@@ -16,8 +17,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/matthiasBT/monitoring/internal/infra/compression"
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
-	"github.com/matthiasBT/monitoring/internal/infra/hashcheck"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/infra/secure"
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/matthiasBT/monitoring/internal/server/adapters"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
@@ -32,12 +33,17 @@ var (
 
 // setupServer configures and returns a new HTTP router with middleware and routes.
 // It includes logging, compression, optional HMAC checking, and controller routes.
-func setupServer(logger logging.ILogger, controller *usecases.BaseController, hmacKey string) *chi.Mux {
+func setupServer(
+	logger logging.ILogger, controller *usecases.BaseController, hmacKey string, key *rsa.PrivateKey,
+) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(logging.Middleware(logger))
 	r.Use(compression.MiddlewareReader, compression.MiddlewareWriter)
 	if hmacKey != "" {
-		r.Use(hashcheck.MiddlewareReader(hmacKey), hashcheck.MiddlewareWriter(hmacKey))
+		r.Use(secure.MiddlewareHashReader(hmacKey), secure.MiddlewareHashWriter(hmacKey))
+	}
+	if key != nil {
+		r.Use(secure.MiddlewareCryptoReader(key))
 	}
 	r.Mount("/", controller.Route())
 	return r
@@ -126,7 +132,11 @@ func main() {
 	}
 
 	controller := usecases.NewBaseController(logger, storage, conf.TemplatePath)
-	r := setupServer(logger, controller, conf.HMACKey)
+	key, err := conf.ReadPrivateKey()
+	if err != nil {
+		panic(err)
+	}
+	r := setupServer(logger, controller, conf.HMACKey, key)
 	srv := http.Server{Addr: conf.Addr, Handler: r}
 	go func() {
 		logger.Infof("Launching the server at %s\n", conf.Addr)

@@ -4,7 +4,12 @@
 package agent
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"flag"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/caarlos0/env/v9"
@@ -34,6 +39,9 @@ type Config struct {
 	// HMACKey is used for HMAC-based integrity checks.
 	HMACKey string `env:"KEY"`
 
+	// ServerPublicKeyPath is the public key of the monitoring server
+	ServerPublicKeyPath string `env:"CRYPTO_KEY"`
+
 	// ReportInterval specifies how often (in seconds) the agent sends metrics to the server.
 	ReportInterval uint `env:"REPORT_INTERVAL"`
 
@@ -53,6 +61,35 @@ type Config struct {
 	RetryIntervalBackoff time.Duration
 }
 
+// ReadServerPublicKey reads a file and return an RSA private key
+func (c *Config) ReadServerPublicKey() (*rsa.PublicKey, error) {
+	if c.ServerPublicKeyPath == "" {
+		return nil, nil
+	}
+
+	data, err := os.ReadFile(c.ServerPublicKeyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block containing public key")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	switch pub := pub.(type) {
+	case *rsa.PublicKey:
+		return pub, nil
+	default:
+		return nil, fmt.Errorf("unknown type of public key")
+	}
+}
+
 // InitConfig initializes the Config structure by parsing environment variables
 // and command-line flags. It provides defaults for missing values and sets up
 // the configuration for the agent.
@@ -68,6 +105,7 @@ func InitConfig() (*Config, error) {
 	)
 	pollInterval := flag.Uint("p", DefPollInterval, "How often to query metrics, seconds")
 	hmacKey := flag.String("k", "", "HMAC key for integrity checks")
+	cryptoKey := flag.String("crypto-key", "", "Path to a file with the server public key")
 	rateLimit := flag.Uint("l", DefRateLimit, "Max number of active workers")
 	flag.Parse()
 	if conf.Addr == "" {
@@ -81,6 +119,9 @@ func InitConfig() (*Config, error) {
 	}
 	if conf.HMACKey == "" {
 		conf.HMACKey = *hmacKey
+	}
+	if conf.ServerPublicKeyPath == "" {
+		conf.ServerPublicKeyPath = *cryptoKey
 	}
 	if conf.RateLimit == 0 {
 		conf.RateLimit = *rateLimit
