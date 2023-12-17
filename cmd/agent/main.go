@@ -80,7 +80,7 @@ func main() {
 	go reporter.Report()
 	go poller.Poll()
 	quitChannel := make(chan os.Signal, 1)
-	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-quitChannel
 	fmt.Println("Stopping the agent")
 }
