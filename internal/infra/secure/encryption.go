@@ -22,7 +22,7 @@ func MiddlewareCryptoReader(key *rsa.PrivateKey) func(next http.Handler) http.Ha
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			decrypted, err := decrypt(body, key)
+			decrypted, err := Decrypt(body, key)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -34,7 +34,7 @@ func MiddlewareCryptoReader(key *rsa.PrivateKey) func(next http.Handler) http.Ha
 	}
 }
 
-func decrypt(payload []byte, key *rsa.PrivateKey) ([]byte, error) {
+func Decrypt(payload []byte, key *rsa.PrivateKey) ([]byte, error) {
 	encryptedKey, encryptedData := payload[:256], payload[256:] // RSA-2048
 	aesKey, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, key, encryptedKey, nil)
 	if err != nil {
