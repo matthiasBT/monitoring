@@ -32,7 +32,7 @@ func NewBaseController(logger logging.ILogger, stor entities.Storage, templatePa
 // batch updating metrics, and retrieving all metrics.
 func (c *BaseController) Route() *chi.Mux {
 	r := chi.NewRouter()
-	r.Get("/Ping", c.Ping)
+	r.Get("/ping", c.Ping)
 	r.Post("/update/", c.UpdateMetric)
 	r.Post("/value/", c.GetMetric)
 	r.Post("/update/{type}/{name}/{value}", c.UpdateMetric)

@@ -5,6 +5,7 @@ package adapters
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -161,12 +162,18 @@ func (r *HTTPReportAdapter) report(payload []byte) error {
 }
 
 func (r *HTTPReportAdapter) createRequest(path url.URL, payload []byte) (*http.Request, error) {
-	req, err := http.NewRequest("POST", path.String(), bytes.NewReader(payload))
+	var compressed bytes.Buffer
+	compressed, err := r.compress(payload)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("POST", path.String(), &compressed)
 	if err != nil {
 		r.Logger.Errorf("Failed to create a request: %v\n", err.Error())
 		return nil, err
 	}
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Content-Encoding", "gzip")
 	return req, nil
 }
 
@@ -192,6 +199,19 @@ func (r *HTTPReportAdapter) hashData(payload []byte) (string, error) {
 	result := hex.EncodeToString(hash)
 	r.Logger.Infof("HMAC-SHA256 hash: %s\n", result)
 	return result, nil
+}
+
+func (r *HTTPReportAdapter) compress(payload []byte) (bytes.Buffer, error) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	_, err := gz.Write(payload)
+	if err != nil {
+		return buf, err
+	}
+	if err := gz.Close(); err != nil {
+		return buf, err
+	}
+	return buf, nil
 }
 
 func (r *HTTPReportAdapter) encryptData(payload []byte) ([]byte, error) {
