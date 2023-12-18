@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/infra/migrations"
@@ -28,16 +27,18 @@ type DBKeeper struct {
 	Retrier utils.Retrier   // Retrier for retry logic
 }
 
-// NewDBKeeper creates and returns a new DBKeeper instance with the provided configuration,
-// logger, and retrier. It opens a database connection, tests it, and runs migrations.
-func NewDBKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Retrier) entities.Keeper {
-	logger.Debugf("Opening the database: %s\n", conf.DatabaseDSN)
-	db, err := sql.Open("pgx", conf.DatabaseDSN)
+// OpenDB opens a database connection
+func OpenDB(dsn string) *sql.DB {
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		logger.Errorf("Failed to open the database: %s\n", err.Error())
 		panic(err)
 	}
+	return db
+}
 
+// NewDBKeeper creates and returns a new DBKeeper instance with the provided database,
+// logger, and retrier. It tests the database connection and runs migrations.
+func NewDBKeeper(db *sql.DB, logger logging.ILogger, retrier utils.Retrier) entities.Keeper {
 	keeper := DBKeeper{DB: db, Logger: logger, Retrier: retrier, Lock: &sync.Mutex{}}
 	if err := keeper.Ping(context.Background()); err != nil {
 		panic(err)

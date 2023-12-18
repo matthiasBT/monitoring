@@ -12,11 +12,9 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
-	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
 // todo
@@ -344,6 +342,9 @@ func TestDBKeeper_create(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("Error creating mock database: %v", err)
+			}
 			var tx *sql.Tx
 			if tt.tx {
 				mock.ExpectBegin()
@@ -354,9 +355,6 @@ func TestDBKeeper_create(t *testing.T) {
 				if err != nil {
 					t.Errorf("Failed to start a transaction: %v", err)
 				}
-			}
-			if err != nil {
-				t.Fatalf("Error creating mock database: %v", err)
 			}
 			defer db.Close()
 			dbk := &DBKeeper{
@@ -508,29 +506,6 @@ func TestDBKeeper_update(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("update() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-// todo
-func TestNewDBKeeper(t *testing.T) {
-	type args struct {
-		conf    *server.Config
-		logger  logging.ILogger
-		retrier utils.Retrier
-	}
-	tests := []struct {
-		name string
-		args args
-		want entities.Keeper
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NewDBKeeper(tt.args.conf, tt.args.logger, tt.args.retrier); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewDBKeeper() = %v, want %v", got, tt.want)
 			}
 		})
 	}

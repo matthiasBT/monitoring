@@ -103,3 +103,10 @@ func printSorted(body []byte) {
 		fmt.Printf("{%s:%v, %s:%v, %s:%v}\n", "id", result.ID, "type", result.MType, "delta", *result.Delta)
 	}
 }
+
+func ping(controller *usecases.BaseController) {
+	w := httptest.NewRecorder()
+	getGaugeReq := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	controller.Ping(w, getGaugeReq)
+	fmt.Println(w.Result().StatusCode)
+}

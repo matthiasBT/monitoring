@@ -32,8 +32,8 @@ type HTTPReportAdapter struct {
 	// Logger is used for logging messages related to HTTP reporting activities.
 	Logger logging.ILogger
 
-	// jobs is an internal channel used to queue payloads for reporting.
-	jobs chan []byte
+	// Jobs is an internal channel used to queue payloads for reporting.
+	Jobs chan []byte
 
 	// ServerAddr specifies the HTTP server address where reports are sent.
 	ServerAddr string
@@ -66,7 +66,6 @@ func NewHTTPReportAdapter(
 	cryptoKey *rsa.PublicKey,
 	workerNum uint,
 ) *HTTPReportAdapter {
-	jobs := make(chan []byte, workerNum)
 	adapter := HTTPReportAdapter{
 		Logger:     logger,
 		ServerAddr: serverAddr,
@@ -74,13 +73,13 @@ func NewHTTPReportAdapter(
 		Retrier:    retrier,
 		HMACKey:    hmacKey,
 		CryptoKey:  cryptoKey,
-		jobs:       jobs,
+		Jobs:       make(chan []byte, workerNum),
 	}
 	var i uint
 	for i = 0; i < workerNum; i++ {
 		go func() {
 			for {
-				data := <-jobs
+				data := <-adapter.Jobs
 				//nolint:errcheck
 				adapter.report(data)
 			}
@@ -97,7 +96,7 @@ func (r *HTTPReportAdapter) Report(metrics *common.Metrics) error {
 		r.Logger.Errorf("Failed to marshal a metric: %v", metrics)
 		return err
 	}
-	r.jobs <- payload
+	r.Jobs <- payload
 	return nil
 }
 
@@ -109,7 +108,7 @@ func (r *HTTPReportAdapter) ReportBatch(batch []*common.Metrics) error {
 		r.Logger.Errorf("Failed to marshal a batch of metrics: %v\n", err.Error())
 		return err
 	}
-	r.jobs <- payload
+	r.Jobs <- payload
 	return nil
 }
 

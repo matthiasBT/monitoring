@@ -80,7 +80,8 @@ func setupRetrier(conf *server.Config, logger logging.ILogger) utils.Retrier {
 func setupKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Retrier) entities.Keeper {
 	if conf.Flushes() {
 		if conf.DatabaseDSN != "" {
-			return adapters.NewDBKeeper(conf, logger, retrier)
+			db := adapters.OpenDB(conf.DatabaseDSN)
+			return adapters.NewDBKeeper(db, logger, retrier)
 		} else {
 			return adapters.NewFileKeeper(conf, logger, retrier)
 		}
