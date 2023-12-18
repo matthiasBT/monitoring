@@ -20,6 +20,7 @@ func Example() {
 	storage := adapters.NewMemStorage(nil, nil, logger, nil)
 	controller := usecases.NewBaseController(logger, storage, "/")
 
+	ping(controller)
 	updateCounter(100500, controller)
 	updateGauge(5.5, controller)
 	getCounter(controller)
@@ -30,6 +31,7 @@ func Example() {
 	getGauge(controller)
 
 	// Output:
+	// 200
 	// {id:FooBar, type:counter, delta:100500}
 	// {id:BarFoo, type:gauge, value:5.5}
 	// {id:FooBar, type:counter, delta:100511}
@@ -108,5 +110,9 @@ func ping(controller *usecases.BaseController) {
 	w := httptest.NewRecorder()
 	getGaugeReq := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	controller.Ping(w, getGaugeReq)
-	fmt.Println(w.Result().StatusCode)
+	resp := w.Result()
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+	fmt.Println(resp.StatusCode)
 }
