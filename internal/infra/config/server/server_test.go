@@ -212,6 +212,7 @@ func TestInitConfigWithJSON(t *testing.T) {
 				ConfigPath:           "/tmp/test-monitoring-server-config-priority-env.json", // from env
 				Addr:                 "0.0.0.0:8901",                                         // from cmd
 				CryptoKey:            "max.key",                                              // from JSON
+				TrustedSubnet:        DefTrustedSubnet,
 				StoreInterval:        DefStoreInterval,
 				FileStoragePath:      DefFileStoragePath,
 				Restore:              DefRestore,

@@ -34,7 +34,7 @@ var (
 // setupServer configures and returns a new HTTP router with middleware and routes.
 // It includes logging, compression, optional HMAC checking, and controller routes.
 func setupServer(
-	logger logging.ILogger, controller *usecases.BaseController, hmacKey string, key *rsa.PrivateKey,
+	logger logging.ILogger, controller *usecases.BaseController, hmacKey, subnet string, key *rsa.PrivateKey,
 ) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(logging.Middleware(logger))
@@ -44,6 +44,9 @@ func setupServer(
 	}
 	if key != nil {
 		r.Use(secure.MiddlewareCryptoReader(key))
+	}
+	if subnet != "" {
+		r.Use(secure.MiddlewareIPFilter(logger, subnet))
 	}
 	r.Mount("/", controller.Route())
 	return r
@@ -137,7 +140,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	r := setupServer(logger, controller, conf.HMACKey, key)
+	r := setupServer(logger, controller, conf.HMACKey, conf.TrustedSubnet, key)
 	srv := http.Server{Addr: conf.Addr, Handler: r}
 	go func() {
 		logger.Infof("Launching the server at %s\n", conf.Addr)
