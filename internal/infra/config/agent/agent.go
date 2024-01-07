@@ -4,7 +4,13 @@
 package agent
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/json"
+	"encoding/pem"
 	"flag"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/caarlos0/env/v9"
@@ -25,8 +31,11 @@ const (
 // server address, update URL, intervals for reporting and polling metrics,
 // HMAC key for integrity checks, rate limits, and retry settings.
 type Config struct {
+	// ConfigPath is the path of a JSON configuration file
+	ConfigPath string `env:"CONFIG"`
+
 	// Addr represents the server address to which the agent connects.
-	Addr string `env:"ADDRESS"`
+	Addr string `env:"ADDRESS" json:"address"`
 
 	// UpdateURL is the URL endpoint for sending updates.
 	UpdateURL string
@@ -34,11 +43,14 @@ type Config struct {
 	// HMACKey is used for HMAC-based integrity checks.
 	HMACKey string `env:"KEY"`
 
+	// CryptoKey is the public key of the monitoring server
+	CryptoKey string `env:"CRYPTO_KEY" json:"crypto_key"`
+
 	// ReportInterval specifies how often (in seconds) the agent sends metrics to the server.
-	ReportInterval uint `env:"REPORT_INTERVAL"`
+	ReportInterval uint `env:"REPORT_INTERVAL" json:"report_interval"`
 
 	// PollInterval specifies how often (in seconds) the agent queries for metrics.
-	PollInterval uint `env:"POLL_INTERVAL"`
+	PollInterval uint `env:"POLL_INTERVAL" json:"poll_interval"`
 
 	// RateLimit defines the maximum number of active workers for processing.
 	RateLimit uint `env:"RATE_LIMIT"`
@@ -53,37 +65,66 @@ type Config struct {
 	RetryIntervalBackoff time.Duration
 }
 
+// ReadServerPublicKey reads a file and return an RSA private key
+func (c *Config) ReadServerPublicKey() (*rsa.PublicKey, error) {
+	if c.CryptoKey == "" {
+		return nil, nil
+	}
+
+	data, err := os.ReadFile(c.CryptoKey)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block containing public key")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	switch pub := pub.(type) {
+	case *rsa.PublicKey:
+		return pub, nil
+	default:
+		return nil, fmt.Errorf("unknown type of public key")
+	}
+}
+
 // InitConfig initializes the Config structure by parsing environment variables
 // and command-line flags. It provides defaults for missing values and sets up
 // the configuration for the agent.
 func InitConfig() (*Config, error) {
 	conf := new(Config)
+	flag.StringVar(&conf.ConfigPath, "c", "", "Configuration file path")
+	flag.StringVar(&conf.Addr, "a", DefAddr, "Server address. Usage: -a=host:port")
+	flag.UintVar(
+		&conf.ReportInterval, "r", DefReportInterval, "How often to send metrics to the server, seconds",
+	)
+	flag.UintVar(&conf.PollInterval, "p", DefPollInterval, "How often to query metrics, seconds")
+	flag.StringVar(&conf.HMACKey, "k", "", "HMAC key for integrity checks")
+	flag.StringVar(&conf.CryptoKey, "crypto-key", "", "Path to a file with the server public key")
+	flag.UintVar(&conf.RateLimit, "l", DefRateLimit, "Max number of active workers")
+	flag.Parse()
+	if jsonConfigPath, ok := os.LookupEnv("CONFIG"); ok {
+		conf.ConfigPath = jsonConfigPath
+	}
+	if conf.ConfigPath != "" {
+		raw, err := os.ReadFile(conf.ConfigPath)
+		if err != nil {
+			panic(err)
+		}
+		if err := json.Unmarshal(raw, conf); err != nil {
+			panic(err)
+		}
+		flag.Parse()
+	}
 	err := env.Parse(conf)
 	if err != nil {
 		return nil, err
-	}
-	addr := flag.String("a", DefAddr, "Server address. Usage: -a=host:port")
-	reportInterval := flag.Uint(
-		"r", DefReportInterval, "How often to send metrics to the server, seconds",
-	)
-	pollInterval := flag.Uint("p", DefPollInterval, "How often to query metrics, seconds")
-	hmacKey := flag.String("k", "", "HMAC key for integrity checks")
-	rateLimit := flag.Uint("l", DefRateLimit, "Max number of active workers")
-	flag.Parse()
-	if conf.Addr == "" {
-		conf.Addr = *addr
-	}
-	if conf.ReportInterval == 0 {
-		conf.ReportInterval = *reportInterval
-	}
-	if conf.PollInterval == 0 {
-		conf.PollInterval = *pollInterval
-	}
-	if conf.HMACKey == "" {
-		conf.HMACKey = *hmacKey
-	}
-	if conf.RateLimit == 0 {
-		conf.RateLimit = *rateLimit
 	}
 	conf.UpdateURL = updateURL
 	conf.RetryAttempts = DefRetryAttempts

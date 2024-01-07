@@ -58,6 +58,7 @@ func (r *Reporter) report() {
 	r.Logger.Infof("Reporting snapshot, memory address: %v\n", &snapshot)
 	var batch = make([]*common.Metrics, 0, len(snapshot.Gauges)+len(snapshot.Gauges))
 	for name, val := range snapshot.Gauges {
+		val := val
 		metric := common.Metrics{
 			ID:    name,
 			MType: common.TypeGauge,
@@ -67,6 +68,7 @@ func (r *Reporter) report() {
 		batch = append(batch, &metric)
 	}
 	for name, val := range snapshot.Counters {
+		val := val
 		metric := common.Metrics{
 			ID:    name,
 			MType: common.TypeCounter,
@@ -82,11 +84,5 @@ func (r *Reporter) report() {
 	r.Logger.Infoln("All metrics have been prepared for report")
 	if err := r.SendAdapter.ReportBatch(batch); err != nil {
 		r.Logger.Errorf("Failed to report a batch. Error: %v\n", err.Error())
-	}
-}
-
-func (r *Reporter) send(metric common.Metrics) {
-	if err := r.SendAdapter.Report(&metric); err != nil {
-		r.Logger.Errorf("Failed to report a metric: %v. Error: %v\n", metric, err)
 	}
 }

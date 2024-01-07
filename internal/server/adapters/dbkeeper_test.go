@@ -12,11 +12,9 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/matthiasBT/monitoring/internal/infra/config/server"
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
-	"github.com/matthiasBT/monitoring/internal/server/entities"
 )
 
 // todo
@@ -313,37 +311,77 @@ func TestDBKeeper_addSingle(t *testing.T) {
 	}
 }
 
-// todo
 func TestDBKeeper_create(t *testing.T) {
-	type fields struct {
-		DB      *sql.DB
-		Logger  logging.ILogger
-		Retrier utils.Retrier
-		Lock    *sync.Mutex
-	}
-	type args struct {
-		ctx    context.Context
-		tx     *sql.Tx
-		create *common.Metrics
-	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
+		name   string
+		ctx    context.Context
+		tx     bool
+		create *common.Metrics
 	}{
-		// TODO: Add test cases.
+		{
+			name: "create_with_tx",
+			create: &common.Metrics{
+				Delta: ptrint64(10),
+				Value: nil,
+				ID:    "ctr",
+				MType: common.TypeCounter,
+			},
+			tx: true,
+		},
+		{
+			name: "create_without_tx",
+			create: &common.Metrics{
+				Delta: nil,
+				Value: ptrfloat64(4.5),
+				ID:    "gg",
+				MType: common.TypeGauge,
+			},
+			tx: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dbk := &DBKeeper{
-				DB:      tt.fields.DB,
-				Logger:  tt.fields.Logger,
-				Retrier: tt.fields.Retrier,
-				Lock:    tt.fields.Lock,
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("Error creating mock database: %v", err)
 			}
-			if err := dbk.create(tt.args.ctx, tt.args.tx, tt.args.create); (err != nil) != tt.wantErr {
-				t.Errorf("create() error = %v, wantErr %v", err, tt.wantErr)
+			var tx *sql.Tx
+			if tt.tx {
+				mock.ExpectBegin()
+				tx, err = db.BeginTx(context.Background(), &sql.TxOptions{
+					Isolation: sql.LevelReadCommitted,
+					ReadOnly:  false,
+				})
+				if err != nil {
+					t.Errorf("Failed to start a transaction: %v", err)
+				}
+			}
+			defer db.Close()
+			dbk := &DBKeeper{
+				DB:     db,
+				Logger: logging.SetupLogger(),
+				Retrier: utils.Retrier{
+					Attempts:         2,
+					IntervalFirst:    100 * time.Millisecond,
+					IntervalIncrease: 100 * time.Millisecond,
+					Logger:           logging.SetupLogger(),
+				},
+				Lock: &sync.Mutex{},
+			}
+			query := regexp.QuoteMeta(`
+    	INSERT INTO metrics(id, mtype, delta, val)
+    	VALUES ($1, $2, $3, $4)
+    	ON CONFLICT (id) DO UPDATE
+    	SET mtype = excluded.mtype, delta = excluded.delta, val = excluded.val
+    	WHERE metrics.id = excluded.id
+    	RETURNING *
+    `)
+			mock.
+				ExpectExec(query).
+				WithArgs(tt.create.ID, tt.create.MType, tt.create.Delta, tt.create.Value).
+				WillReturnResult(sqlmock.NewResult(1, 1))
+			if err := dbk.create(context.Background(), tx, tt.create); err != nil {
+				t.Errorf("create() error = %v", err)
 			}
 		})
 	}
@@ -468,29 +506,6 @@ func TestDBKeeper_update(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("update() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-// todo
-func TestNewDBKeeper(t *testing.T) {
-	type args struct {
-		conf    *server.Config
-		logger  logging.ILogger
-		retrier utils.Retrier
-	}
-	tests := []struct {
-		name string
-		args args
-		want entities.Keeper
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NewDBKeeper(tt.args.conf, tt.args.logger, tt.args.retrier); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewDBKeeper() = %v, want %v", got, tt.want)
 			}
 		})
 	}

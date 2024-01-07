@@ -20,6 +20,7 @@ func Example() {
 	storage := adapters.NewMemStorage(nil, nil, logger, nil)
 	controller := usecases.NewBaseController(logger, storage, "/")
 
+	ping(controller)
 	updateCounter(100500, controller)
 	updateGauge(5.5, controller)
 	getCounter(controller)
@@ -30,10 +31,11 @@ func Example() {
 	getGauge(controller)
 
 	// Output:
-	// {"id":"FooBar","type":"counter","delta":100500}
-	// {"id":"BarFoo","type":"gauge","value":5.5}
-	// {"id":"FooBar","type":"counter","delta":100511}
-	// {"id":"BarFoo","type":"gauge","value":1.5}
+	// 200
+	// {id:FooBar, type:counter, delta:100500}
+	// {id:BarFoo, type:gauge, value:5.5}
+	// {id:FooBar, type:counter, delta:100511}
+	// {id:BarFoo, type:gauge, value:1.5}
 }
 
 func updateCounter(value int64, controller *usecases.BaseController) {
@@ -76,7 +78,7 @@ func getCounter(controller *usecases.BaseController) {
 	getCounterReq := httptest.NewRequest(http.MethodGet, "/value/", bytes.NewReader(body))
 	getCounterReq.Header.Set("Content-Type", "application/json")
 	controller.GetMetric(w, getCounterReq)
-	fmt.Printf("%v\n", w.Body)
+	printSorted(w.Body.Bytes())
 }
 
 func getGauge(controller *usecases.BaseController) {
@@ -91,5 +93,26 @@ func getGauge(controller *usecases.BaseController) {
 	getGaugeReq := httptest.NewRequest(http.MethodGet, "/value/", bytes.NewReader(body))
 	getGaugeReq.Header.Set("Content-Type", "application/json")
 	controller.GetMetric(w, getGaugeReq)
-	fmt.Printf("%v\n", w.Body)
+	printSorted(w.Body.Bytes())
+}
+
+func printSorted(body []byte) {
+	var result common.Metrics
+	json.Unmarshal(body, &result)
+	if result.MType == common.TypeGauge {
+		fmt.Printf("{%s:%v, %s:%v, %s:%v}\n", "id", result.ID, "type", result.MType, "value", *result.Value)
+	} else {
+		fmt.Printf("{%s:%v, %s:%v, %s:%v}\n", "id", result.ID, "type", result.MType, "delta", *result.Delta)
+	}
+}
+
+func ping(controller *usecases.BaseController) {
+	w := httptest.NewRecorder()
+	getGaugeReq := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	controller.Ping(w, getGaugeReq)
+	resp := w.Result()
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+	fmt.Println(resp.StatusCode)
 }

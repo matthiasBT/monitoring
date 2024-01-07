@@ -61,20 +61,26 @@ func MiddlewareReader(next http.Handler) http.Handler {
 			return
 		}
 
-		gz, err := gzip.NewReader(r.Body)
+		var body []byte
+		body, err := Decompress(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer gz.Close()
-
-		body, err := io.ReadAll(gz)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
 		}
 
 		r.Body = io.NopCloser(bytes.NewBuffer(body))
 		next.ServeHTTP(w, r)
 	})
+}
+
+func Decompress(reqBody io.ReadCloser) ([]byte, error) {
+	gz, err := gzip.NewReader(reqBody)
+	if err != nil {
+		return nil, err
+	}
+	defer gz.Close()
+	body, err := io.ReadAll(gz)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
 }

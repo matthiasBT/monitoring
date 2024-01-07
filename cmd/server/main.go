@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"log"
 	"net/http"
@@ -16,8 +17,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/matthiasBT/monitoring/internal/infra/compression"
 	"github.com/matthiasBT/monitoring/internal/infra/config/server"
-	"github.com/matthiasBT/monitoring/internal/infra/hashcheck"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/infra/secure"
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/matthiasBT/monitoring/internal/server/adapters"
 	"github.com/matthiasBT/monitoring/internal/server/entities"
@@ -32,12 +33,17 @@ var (
 
 // setupServer configures and returns a new HTTP router with middleware and routes.
 // It includes logging, compression, optional HMAC checking, and controller routes.
-func setupServer(logger logging.ILogger, controller *usecases.BaseController, hmacKey string) *chi.Mux {
+func setupServer(
+	logger logging.ILogger, controller *usecases.BaseController, hmacKey string, key *rsa.PrivateKey,
+) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(logging.Middleware(logger))
 	r.Use(compression.MiddlewareReader, compression.MiddlewareWriter)
 	if hmacKey != "" {
-		r.Use(hashcheck.MiddlewareReader(hmacKey), hashcheck.MiddlewareWriter(hmacKey))
+		r.Use(secure.MiddlewareHashReader(hmacKey), secure.MiddlewareHashWriter(hmacKey))
+	}
+	if key != nil {
+		r.Use(secure.MiddlewareCryptoReader(key))
 	}
 	r.Mount("/", controller.Route())
 	return r
@@ -47,11 +53,11 @@ func setupServer(logger logging.ILogger, controller *usecases.BaseController, hm
 // It listens for system signals and shuts down the server after processing ongoing requests.
 func gracefulShutdown(srv *http.Server, done chan struct{}, logger logging.ILogger) {
 	quitChannel := make(chan os.Signal, 1)
-	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	sig := <-quitChannel
 	logger.Infof("Received signal: %v\n", sig)
 	done <- struct{}{}
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	if err := srv.Shutdown(context.Background()); err != nil {
 		log.Fatalf("Server shutdown failed: %v\n", err.Error())
@@ -74,7 +80,8 @@ func setupRetrier(conf *server.Config, logger logging.ILogger) utils.Retrier {
 func setupKeeper(conf *server.Config, logger logging.ILogger, retrier utils.Retrier) entities.Keeper {
 	if conf.Flushes() {
 		if conf.DatabaseDSN != "" {
-			return adapters.NewDBKeeper(conf, logger, retrier)
+			db := adapters.OpenDB(conf.DatabaseDSN)
+			return adapters.NewDBKeeper(db, logger, retrier)
 		} else {
 			return adapters.NewFileKeeper(conf, logger, retrier)
 		}
@@ -88,7 +95,7 @@ func setupTicker(conf *server.Config) <-chan time.Time {
 	if conf.FlushesSync() {
 		return make(chan time.Time) // will never be used
 	} else {
-		ticker := time.NewTicker(time.Duration(*conf.StoreInterval) * time.Second)
+		ticker := time.NewTicker(time.Duration(conf.StoreInterval) * time.Second)
 		return ticker.C
 	}
 }
@@ -116,7 +123,7 @@ func main() {
 	storage := adapters.NewMemStorage(done, tickerChan, logger, keeper)
 
 	if conf.Flushes() {
-		if *conf.Restore {
+		if conf.Restore {
 			state := keeper.Restore()
 			storage.Init(state)
 		}
@@ -126,7 +133,11 @@ func main() {
 	}
 
 	controller := usecases.NewBaseController(logger, storage, conf.TemplatePath)
-	r := setupServer(logger, controller, conf.HMACKey)
+	key, err := conf.ReadPrivateKey()
+	if err != nil {
+		panic(err)
+	}
+	r := setupServer(logger, controller, conf.HMACKey, key)
 	srv := http.Server{Addr: conf.Addr, Handler: r}
 	go func() {
 		logger.Infof("Launching the server at %s\n", conf.Addr)

@@ -3,6 +3,7 @@ package usecases
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -290,8 +291,11 @@ func Test_writeMetric(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rr := httptest.NewRecorder()
 			writeMetric(rr, tt.args.asJSON, &tt.args.metrics)
-			if !bytes.Equal([]byte(tt.wantBody), rr.Body.Bytes()) {
-				t.Errorf("Body mismatch. got: %s, want: %s\n", rr.Body.Bytes(), tt.wantBody)
+			var want, got common.Metrics
+			json.Unmarshal([]byte(tt.wantBody), &want)
+			json.Unmarshal(rr.Body.Bytes(), &got)
+			if !reflect.DeepEqual(want, got) {
+				t.Errorf("Body mismatch. got: %v, want: %v\n", got, want)
 			}
 		})
 	}

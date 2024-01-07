@@ -1,7 +1,7 @@
-// Package hashcheck provides middleware for adding and verifying HMAC SHA256
+// Package secure provides middleware for adding and verifying HMAC SHA256
 // hashes in HTTP requests and responses. It ensures the integrity of the data
 // transmitted over HTTP.
-package hashcheck
+package secure
 
 import (
 	"bytes"
@@ -47,10 +47,10 @@ func (w *extendedWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
-// MiddlewareReader returns a middleware function that verifies the HMAC SHA256
+// MiddlewareHashReader returns a middleware function that verifies the HMAC SHA256
 // hash of the request body. It compares the client-provided hash in the header
 // with the server-generated hash to ensure data integrity.
-func MiddlewareReader(key string) func(next http.Handler) http.Handler {
+func MiddlewareHashReader(key string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		checkHashFn := func(w http.ResponseWriter, r *http.Request) {
 			var clientHash string
@@ -83,10 +83,10 @@ func MiddlewareReader(key string) func(next http.Handler) http.Handler {
 	}
 }
 
-// MiddlewareWriter returns a middleware function that adds an HMAC SHA256
+// MiddlewareHashWriter returns a middleware function that adds an HMAC SHA256
 // hash to the response header. It uses extendedWriter to automatically hash
 // the response data and append the hash to the response headers.
-func MiddlewareWriter(key string) func(next http.Handler) http.Handler {
+func MiddlewareHashWriter(key string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		addHashFn := func(w http.ResponseWriter, r *http.Request) {
 			extWriter := &extendedWriter{
