@@ -36,15 +36,12 @@ func (s *Server) Ping(ctx context.Context, req *pb.Empty) (*pb.Empty, error) {
 // GetMetric handles the GRPC request for retrieving a specific metric.
 // It validates the query, and writes the metric data back to the response.
 func (s *Server) GetMetric(ctx context.Context, req *pb.Metrics) (*pb.Metrics, error) {
-	metrics := common.Metrics{
-		ID:    req.Id,
-		MType: req.MType,
-	}
+	metrics := unwrapMetrics(req)
 	err := metrics.Validate(false)
 	if err != nil {
 		return nil, wrapInvalidMetricError(err)
 	}
-	result, err := s.Storage.Get(ctx, &metrics)
+	result, err := s.Storage.Get(ctx, metrics)
 	if err != nil {
 		var code codes.Code
 		if errors.Is(err, common.ErrUnknownMetric) {
@@ -53,6 +50,19 @@ func (s *Server) GetMetric(ctx context.Context, req *pb.Metrics) (*pb.Metrics, e
 			code = codes.Internal
 		}
 		return nil, status.Errorf(code, err.Error())
+	}
+	return wrapMetrics(result), nil
+}
+
+func (s *Server) UpdateMetric(ctx context.Context, req *pb.Metrics) (*pb.Metrics, error) {
+	metrics := unwrapMetrics(req)
+	err := metrics.Validate(true)
+	if err != nil {
+		return nil, wrapInvalidMetricError(err)
+	}
+	result, err := s.Storage.Add(ctx, metrics)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	return wrapMetrics(result), nil
 }
@@ -68,6 +78,19 @@ func wrapInvalidMetricError(err error) error {
 		code = codes.Internal
 	}
 	return status.Errorf(code, err.Error())
+}
+
+func unwrapMetrics(req *pb.Metrics) *common.Metrics {
+	metrics := new(common.Metrics)
+	metrics.ID = req.Id
+	metrics.MType = req.MType
+	if req.Value != nil {
+		metrics.Value = &req.Value.Value
+	}
+	if req.Delta != nil {
+		metrics.Delta = &req.Delta.Value
+	}
+	return metrics
 }
 
 func wrapMetrics(result *common.Metrics) *pb.Metrics {
