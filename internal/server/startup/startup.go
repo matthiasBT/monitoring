@@ -50,7 +50,10 @@ func SetupGRPCServer(
 ) *grpc.Server {
 	srv := servergrpc.NewServer(logger, storage)
 	s := grpc.NewServer(
-		grpc.UnaryInterceptor(servergrpc.LoggingInterceptor),
+		grpc.ChainUnaryInterceptor(
+			servergrpc.LoggingInterceptor,
+			servergrpc.GzipDecompressorInterceptor,
+		),
 	)
 	pb.RegisterMonitoringServer(s, srv)
 	return s

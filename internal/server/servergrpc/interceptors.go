@@ -7,6 +7,8 @@ import (
 
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -27,4 +29,16 @@ func LoggingInterceptor(
 		logger.Infof("Response: %d bytes", 0) // TODO: implement
 	}
 	return resp, err
+}
+
+func GzipDecompressorInterceptor(
+	ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
+) (interface{}, error) {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if val := md["content-encoding"]; len(val) > 0 && val[0] == "gzip" {
+			newCtx := context.WithValue(ctx, grpc.UseCompressor(gzip.Name), true)
+			return handler(newCtx, req)
+		}
+	}
+	return handler(ctx, req)
 }
