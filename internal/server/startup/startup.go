@@ -22,6 +22,7 @@ import (
 	"github.com/matthiasBT/monitoring/internal/server/usecases"
 	pb "github.com/matthiasBT/monitoring/proto"
 	"google.golang.org/grpc"
+	_ "google.golang.org/grpc/encoding/gzip"
 )
 
 // SetupHTTPServer configures and returns a new HTTP router with middleware and routes.
@@ -50,7 +51,9 @@ func SetupGRPCServer(
 ) *grpc.Server {
 	srv := servergrpc.NewServer(logger, storage)
 	s := grpc.NewServer(
-		grpc.UnaryInterceptor(servergrpc.LoggingInterceptor),
+		grpc.ChainUnaryInterceptor(
+			servergrpc.LoggingInterceptor,
+		),
 	)
 	pb.RegisterMonitoringServer(s, srv)
 	return s
