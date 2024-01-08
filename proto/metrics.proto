@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/wrappers.proto";
+
 package metrics;
 
 option go_package = "monitoring/proto";
@@ -9,10 +11,10 @@ option go_package = "monitoring/proto";
 message Metrics {
   // Delta is used for counter metrics to represent a change in value.
   // 'optional' in proto3 is the default and need not be explicitly specified.
-  int64 delta = 1;
+  google.protobuf.Int64Value delta = 1;
 
   // Value is used for gauge metrics to represent a measurement value.
-  double value = 2;
+  google.protobuf.DoubleValue value = 2;
 
   // ID is the unique identifier of the metric.
   string id = 3;
