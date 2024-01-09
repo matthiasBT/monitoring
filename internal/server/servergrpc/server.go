@@ -37,8 +37,7 @@ func (s *Server) Ping(ctx context.Context, req *pb.Empty) (*pb.Empty, error) {
 // It validates the query, and writes the metric data back to the response.
 func (s *Server) GetMetric(ctx context.Context, req *pb.Metrics) (*pb.Metrics, error) {
 	metrics := unwrapMetrics(req)
-	err := metrics.Validate(false)
-	if err != nil {
+	if err := metrics.Validate(false); err != nil {
 		return nil, wrapInvalidMetricError(err)
 	}
 	result, err := s.Storage.Get(ctx, metrics)
@@ -56,8 +55,7 @@ func (s *Server) GetMetric(ctx context.Context, req *pb.Metrics) (*pb.Metrics, e
 
 func (s *Server) UpdateMetric(ctx context.Context, req *pb.Metrics) (*pb.Metrics, error) {
 	metrics := unwrapMetrics(req)
-	err := metrics.Validate(true)
-	if err != nil {
+	if err := metrics.Validate(true); err != nil {
 		return nil, wrapInvalidMetricError(err)
 	}
 	result, err := s.Storage.Add(ctx, metrics)
@@ -65,6 +63,21 @@ func (s *Server) UpdateMetric(ctx context.Context, req *pb.Metrics) (*pb.Metrics
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	return wrapMetrics(result), nil
+}
+
+func (s *Server) MassUpdateMetrics(ctx context.Context, req *pb.MetricsArray) (*pb.Empty, error) {
+	var batch []*common.Metrics
+	for _, wrapped := range req.Objects {
+		unwrapped := unwrapMetrics(wrapped)
+		if err := unwrapped.Validate(true); err != nil {
+			return nil, wrapInvalidMetricError(err)
+		}
+		batch = append(batch, unwrapMetrics(wrapped))
+	}
+	if err := s.Storage.AddBatch(ctx, batch); err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	return new(pb.Empty), nil
 }
 
 func wrapInvalidMetricError(err error) error {
