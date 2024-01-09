@@ -33,8 +33,6 @@ func (s *Server) Ping(ctx context.Context, req *pb.Empty) (*pb.Empty, error) {
 	return new(pb.Empty), nil
 }
 
-// GetMetric handles the GRPC request for retrieving a specific metric.
-// It validates the query, and writes the metric data back to the response.
 func (s *Server) GetMetric(ctx context.Context, req *pb.Metrics) (*pb.Metrics, error) {
 	metrics := unwrapMetrics(req)
 	if err := metrics.Validate(false); err != nil {
@@ -78,6 +76,23 @@ func (s *Server) MassUpdateMetrics(ctx context.Context, req *pb.MetricsArray) (*
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	return new(pb.Empty), nil
+}
+
+func (s *Server) GetAllMetrics(ctx context.Context, req *pb.Empty) (*pb.MetricsArray, error) {
+	var batch map[string]*common.Metrics
+	var err error
+	batch, err = s.Storage.GetAll(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	var result []*pb.Metrics
+	for _, unwrapped := range batch {
+		wrapped := wrapMetrics(unwrapped)
+		result = append(result, wrapped)
+	}
+	arr := new(pb.MetricsArray)
+	arr.Objects = result
+	return arr, nil
 }
 
 func wrapInvalidMetricError(err error) error {
