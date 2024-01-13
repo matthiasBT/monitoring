@@ -2,6 +2,7 @@ package servergrpc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
@@ -65,15 +66,15 @@ func (s *Server) UpdateMetric(ctx context.Context, req *pb.Metrics) (*pb.Metrics
 
 func (s *Server) MassUpdateMetrics(ctx context.Context, req *pb.MetricsArray) (*pb.Empty, error) {
 	batch := utils.GRPCMultipleMetricsToHTTP(req)
-	for _, metrics := range batch {
-		if err := metrics.Validate(true); err != nil {
-			return nil, utils.WrapInvalidMetricError(err)
-		}
+	return s.massUpdate(ctx, batch)
+}
+
+func (s *Server) MassUpdateMetricsEncrypted(ctx context.Context, req *pb.EncryptedMetricsArray) (*pb.Empty, error) {
+	var batch []*common.Metrics
+	if err := json.Unmarshal(req.Metrics, &batch); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
-	if err := s.Storage.AddBatch(ctx, batch); err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-	return new(pb.Empty), nil
+	return s.massUpdate(ctx, batch)
 }
 
 func (s *Server) GetAllMetrics(ctx context.Context, req *pb.Empty) (*pb.MetricsArray, error) {
@@ -88,4 +89,16 @@ func (s *Server) GetAllMetrics(ctx context.Context, req *pb.Empty) (*pb.MetricsA
 		values = append(values, v)
 	}
 	return utils.HTTPMultipleMetricsToGRPC(values), nil
+}
+
+func (s *Server) massUpdate(ctx context.Context, batch []*common.Metrics) (*pb.Empty, error) {
+	for _, metrics := range batch {
+		if err := metrics.Validate(true); err != nil {
+			return nil, utils.WrapInvalidMetricError(err)
+		}
+	}
+	if err := s.Storage.AddBatch(ctx, batch); err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	return new(pb.Empty), nil
 }

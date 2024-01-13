@@ -51,10 +51,10 @@ func main() {
 	done := make(<-chan bool)
 	dataExchange := entities.SnapshotWrapper{CurrSnapshot: nil}
 	retrier := setupRetrier(conf, logger)
-	//publicKey, err := conf.ReadServerPublicKey()
-	//if err != nil {
-	//	panic(err)
-	//}
+	publicKey, err := conf.ReadServerPublicKey()
+	if err != nil {
+		panic(err)
+	}
 	var adapter entities.IReporter
 	if conf.GRPC {
 		adapter = adapters.NewGRPCReportAdapter(
@@ -62,7 +62,7 @@ func main() {
 			conf.Addr,
 			retrier,
 			[]byte(conf.HMACKey),
-			nil,
+			publicKey,
 			conf.RateLimit,
 		)
 	} else {
@@ -72,7 +72,7 @@ func main() {
 			conf.UpdateURL,
 			retrier,
 			[]byte(conf.HMACKey),
-			nil,
+			publicKey,
 			conf.RateLimit,
 		)
 	}

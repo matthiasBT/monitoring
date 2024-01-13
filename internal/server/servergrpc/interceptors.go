@@ -2,6 +2,7 @@ package servergrpc
 
 import (
 	"context"
+	"crypto/rsa"
 	"encoding/json"
 	"log"
 	"net"
@@ -17,9 +18,10 @@ import (
 )
 
 type Interceptor struct {
-	Logger  logging.ILogger
-	HMACKey []byte
-	Subnet  *net.IPNet
+	Logger    logging.ILogger
+	HMACKey   []byte
+	Subnet    *net.IPNet
+	CryptoKey *rsa.PrivateKey
 }
 
 func (i Interceptor) LoggingInterceptor(
@@ -31,7 +33,7 @@ func (i Interceptor) LoggingInterceptor(
 	i.Logger.Infof("Served: %s %v\n", info.FullMethod, duration)
 	if err != nil {
 		st, _ := status.FromError(err)
-		log.Printf("Error response Code: %v", st.Code())
+		log.Printf("Error response Code: %v. Message: %v", st.Code(), err.Error())
 	}
 	return resp, err
 }
@@ -42,13 +44,13 @@ func (i Interceptor) HashCheckInterceptor(
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		values := md.Get("HashSHA256")
 		if len(values) > 0 {
-			payload, err := jsonifyGRPCMetrics(req)
+			payload, err := toBinary(req)
 			serverHash, err := utils.HashData(payload, i.HMACKey)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, err.Error())
 			}
 			if serverHash != values[0] {
-				return nil, status.Errorf(codes.InvalidArgument, err.Error())
+				return nil, status.Errorf(codes.InvalidArgument, "payload hash mismatch")
 			}
 		}
 	}
@@ -62,7 +64,7 @@ func (i Interceptor) HashWriteInterceptor(
 	if err != nil {
 		return nil, err
 	}
-	payload, err := jsonifyGRPCMetrics(req)
+	payload, err := toBinary(req)
 	if hash, err := utils.HashData(payload, i.HMACKey); err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	} else {
@@ -94,7 +96,20 @@ func (i Interceptor) SubnetCheckInterceptor(
 	return handler(ctx, req)
 }
 
-func jsonifyGRPCMetrics(data any) ([]byte, error) {
+func (i Interceptor) DecryptionInterceptor(
+	ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
+) (interface{}, error) {
+	if data, ok := req.(*pb.EncryptedMetricsArray); ok {
+		if plaintext, err := utils.Decrypt(data.Metrics, i.CryptoKey); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		} else {
+			data.Metrics = plaintext
+		}
+	}
+	return handler(ctx, req)
+}
+
+func toBinary(data any) ([]byte, error) {
 	var (
 		payload []byte
 		err     error
@@ -111,6 +126,8 @@ func jsonifyGRPCMetrics(data any) ([]byte, error) {
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
+	} else if reqMultiple, ok := data.(*pb.EncryptedMetricsArray); ok {
+		payload = reqMultiple.Metrics
 	}
 	return payload, nil
 }

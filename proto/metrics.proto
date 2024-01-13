@@ -27,6 +27,10 @@ message MetricsArray {
   repeated Metrics objects = 1;
 }
 
+message EncryptedMetricsArray {
+  bytes Metrics = 1;
+}
+
 message Empty {
 }
 
@@ -35,5 +39,6 @@ service Monitoring {
   rpc UpdateMetric(Metrics) returns (Metrics);
   rpc GetMetric(Metrics) returns (Metrics);
   rpc MassUpdateMetrics(MetricsArray) returns (Empty);
+  rpc MassUpdateMetricsEncrypted(EncryptedMetricsArray) returns (Empty);
   rpc GetAllMetrics(Empty) returns (MetricsArray);
 }

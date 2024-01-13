@@ -46,22 +46,29 @@ func SetupHTTPServer(
 	return r
 }
 
+// SetupGRPCServer configures and returns a new GRPC router with middleware
 func SetupGRPCServer(
 	logger logging.ILogger, storage entities.Storage, hmacKey, subnet string, key *rsa.PrivateKey,
 ) *grpc.Server {
 	srv := servergrpc.NewServer(logger, storage)
 	interceptor := servergrpc.Interceptor{
-		Logger:  logging.SetupLogger(),
-		HMACKey: []byte(hmacKey),
-		Subnet:  utils.ParseSubnet(subnet),
+		Logger:    logging.SetupLogger(),
+		HMACKey:   []byte(hmacKey),
+		Subnet:    utils.ParseSubnet(subnet),
+		CryptoKey: key,
+	}
+	interceptors := []grpc.UnaryServerInterceptor{interceptor.LoggingInterceptor}
+	if hmacKey != "" {
+		interceptors = append(interceptors, interceptor.HashCheckInterceptor, interceptor.HashWriteInterceptor)
+	}
+	if key != nil {
+		interceptors = append(interceptors, interceptor.DecryptionInterceptor)
+	}
+	if subnet != "" {
+		interceptors = append(interceptors, interceptor.SubnetCheckInterceptor)
 	}
 	s := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			interceptor.LoggingInterceptor,
-			interceptor.HashCheckInterceptor,
-			interceptor.HashWriteInterceptor,
-			interceptor.SubnetCheckInterceptor,
-		),
+		grpc.ChainUnaryInterceptor(interceptors...),
 	)
 	pb.RegisterMonitoringServer(s, srv)
 	return s

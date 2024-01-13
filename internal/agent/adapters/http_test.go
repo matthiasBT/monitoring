@@ -9,7 +9,6 @@ import (
 
 	"github.com/matthiasBT/monitoring/internal/infra/compression"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
-	"github.com/matthiasBT/monitoring/internal/infra/secure"
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -64,7 +63,7 @@ func Test_encryptData(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to encrypt data: %v", err)
 	}
-	decrypted, err := secure.Decrypt(cipher, privateKey)
+	decrypted, err := utils.Decrypt(cipher, privateKey)
 	if err != nil {
 		t.Errorf("Failed to decrypt data: %v", err)
 	}

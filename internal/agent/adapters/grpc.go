@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"encoding/json"
+	"fmt"
 
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type GRPCReportAdapter struct {
@@ -60,30 +62,39 @@ func (r *GRPCReportAdapter) ReportBatch(batch []*common.Metrics) error {
 
 func (r *GRPCReportAdapter) report(payload []*common.Metrics) error {
 	var (
-		err  error
-		meta []string
+		err    error
+		meta   []string
+		cipher []byte
+		hash   string
 	)
-	//if r.CryptoKey != nil {
-	//	payload, err = encryptData(payload, r.CryptoKey)
-	//	if err != nil {
-	//		return err
-	//	}
-	//} // TODO: add a separate function
+
+	encrypted := r.CryptoKey != nil
+	if encrypted {
+		cipher, err = r.encrypt(payload)
+		if err != nil {
+			return err
+		}
+		if hash, err = utils.HashData(cipher, r.HMACKey); err != nil {
+			return err
+		}
+	} else if hash, err = r.getHMACHeader(payload); err != nil {
+		return err
+	}
 
 	if addr, err := getLocalIP(); err != nil {
 		return err
 	} else {
 		meta = append(meta, "X-Real-IP", addr)
 	}
-	if hash, err := r.getHMACHeader(payload); err != nil {
-		return err
-	} else if hash != "" {
+	if hash != "" {
 		meta = append(meta, "HashSHA256", hash)
 	}
 
-	req := utils.HTTPMultipleMetricsToGRPC(payload)
-
 	f := func() (any, error) {
+		var (
+			res any
+			err error
+		)
 		conn, err := grpc.Dial(r.ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, err
@@ -92,17 +103,37 @@ func (r *GRPCReportAdapter) report(payload []*common.Metrics) error {
 		c := pb.NewMonitoringClient(conn)
 		md := metadata.Pairs(meta...)
 		ctx := metadata.NewOutgoingContext(context.Background(), md)
-		res, err := c.MassUpdateMetrics(ctx, req)
+		if encrypted {
+			req := new(pb.EncryptedMetricsArray)
+			req.Metrics = cipher
+			res, err = c.MassUpdateMetricsEncrypted(ctx, req)
+		} else {
+			req := utils.HTTPMultipleMetricsToGRPC(payload)
+			res, err = c.MassUpdateMetrics(ctx, req)
+		}
 		if err != nil {
 			return nil, err
 		}
 		return res, nil
 	}
-	_, err = r.Retrier.RetryChecked(context.Background(), f, utils.CheckConnectionError)
-	if err != nil {
-		return err
+	ctx := context.Background()
+	_, err = r.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		r.Logger.Infof("Response metadata: %v", md)
 	}
-	r.Logger.Info("Success")
+	if err != nil {
+		st, ok := status.FromError(err)
+		if !ok {
+			fmt.Println("Error was not a gRPC status error")
+		} else {
+			r.Logger.Infof("Error code: %v", st.Code())
+			r.Logger.Infof("Error message: %s", st.Message())
+
+		}
+		return err
+	} else {
+		r.Logger.Info("Success")
+	}
 	return nil
 }
 
@@ -111,10 +142,18 @@ func (r *GRPCReportAdapter) getHMACHeader(payload []*common.Metrics) (string, er
 	if err != nil {
 		return "", err
 	}
-	if hash, err := utils.HashData(binary, r.HMACKey); err != nil {
-		return "", err
-	} else if hash != "" {
-		return hash, nil
+	return utils.HashData(binary, r.HMACKey)
+}
+
+func (r *GRPCReportAdapter) encrypt(payload []*common.Metrics) ([]byte, error) {
+	var raw []byte
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
 	}
-	return "", nil
+	cipher, err := encryptData(raw, r.CryptoKey)
+	if err != nil {
+		return nil, err
+	}
+	return cipher, nil
 }
