@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rsa"
 	"encoding/json"
-	"fmt"
 
 	common "github.com/matthiasBT/monitoring/internal/infra/entities"
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
@@ -62,12 +61,13 @@ func (r *GRPCReportAdapter) ReportBatch(batch []*common.Metrics) error {
 
 func (r *GRPCReportAdapter) report(payload []*common.Metrics) error {
 	var (
-		err    error
-		meta   []string
-		cipher []byte
-		hash   string
+		err       error
+		meta      []string
+		cipher    []byte
+		hash      string
+		headerMD  metadata.MD
+		trailerMD metadata.MD
 	)
-
 	encrypted := r.CryptoKey != nil
 	if encrypted {
 		cipher, err = r.encrypt(payload)
@@ -106,25 +106,22 @@ func (r *GRPCReportAdapter) report(payload []*common.Metrics) error {
 		if encrypted {
 			req := new(pb.EncryptedMetricsArray)
 			req.Metrics = cipher
-			res, err = c.MassUpdateMetricsEncrypted(ctx, req)
+			res, err = c.MassUpdateMetricsEncrypted(ctx, req, grpc.Header(&headerMD), grpc.Trailer(&trailerMD))
 		} else {
 			req := utils.HTTPMultipleMetricsToGRPC(payload)
-			res, err = c.MassUpdateMetrics(ctx, req)
+			res, err = c.MassUpdateMetrics(ctx, req, grpc.Header(&headerMD), grpc.Trailer(&trailerMD))
 		}
 		if err != nil {
 			return nil, err
 		}
 		return res, nil
 	}
-	ctx := context.Background()
-	_, err = r.Retrier.RetryChecked(ctx, f, utils.CheckConnectionError)
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		r.Logger.Infof("Response metadata: %v", md)
-	}
+	_, err = r.Retrier.RetryChecked(context.Background(), f, utils.CheckConnectionError)
+	r.Logger.Infof("Response metadata. header: %v. trailer: %v", headerMD, trailerMD)
 	if err != nil {
 		st, ok := status.FromError(err)
 		if !ok {
-			fmt.Println("Error was not a gRPC status error")
+			r.Logger.Infoln("Error was not a gRPC status error")
 		} else {
 			r.Logger.Infof("Error code: %v", st.Code())
 			r.Logger.Infof("Error message: %s", st.Message())
