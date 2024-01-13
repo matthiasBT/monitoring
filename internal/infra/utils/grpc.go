@@ -4,15 +4,14 @@ import (
 	"errors"
 
 	"github.com/matthiasBT/monitoring/internal/infra/entities"
-	"github.com/matthiasBT/monitoring/proto"
 	pb "github.com/matthiasBT/monitoring/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func HTTPMetricToGRPC(result *entities.Metrics) *proto.Metrics {
-	resp := new(proto.Metrics)
+func HTTPMetricToGRPC(result *entities.Metrics) *pb.Metrics {
+	resp := new(pb.Metrics)
 	resp.Id = result.ID
 	resp.MType = result.MType
 	if result.Delta != nil {
