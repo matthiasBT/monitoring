@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"net"
 	"time"
 
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
@@ -18,6 +19,7 @@ import (
 type Interceptor struct {
 	Logger  logging.ILogger
 	HMACKey []byte
+	Subnet  *net.IPNet
 }
 
 func (i Interceptor) LoggingInterceptor(
@@ -70,6 +72,26 @@ func (i Interceptor) HashWriteInterceptor(
 		}
 	}
 	return resp, nil
+}
+
+func (i Interceptor) SubnetCheckInterceptor(
+	ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
+) (interface{}, error) {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		values := md.Get("X-Real-IP")
+		if len(values) > 0 {
+			var clientIP = net.ParseIP(values[0])
+			if clientIP == nil {
+				return nil, status.Errorf(codes.PermissionDenied, "Invalid X-Real-IP header value")
+			}
+			if !i.Subnet.Contains(clientIP) {
+				return nil, status.Errorf(codes.PermissionDenied, "Untrusted client IP address")
+			}
+		} else {
+			return nil, status.Errorf(codes.PermissionDenied, "Missing X-Real-IP header value")
+		}
+	}
+	return handler(ctx, req)
 }
 
 func jsonifyGRPCMetrics(data any) ([]byte, error) {

@@ -50,12 +50,17 @@ func SetupGRPCServer(
 	logger logging.ILogger, storage entities.Storage, hmacKey, subnet string, key *rsa.PrivateKey,
 ) *grpc.Server {
 	srv := servergrpc.NewServer(logger, storage)
-	interceptor := servergrpc.Interceptor{Logger: logging.SetupLogger(), HMACKey: []byte(hmacKey)}
+	interceptor := servergrpc.Interceptor{
+		Logger:  logging.SetupLogger(),
+		HMACKey: []byte(hmacKey),
+		Subnet:  utils.ParseSubnet(subnet),
+	}
 	s := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			interceptor.LoggingInterceptor,
 			interceptor.HashCheckInterceptor,
 			interceptor.HashWriteInterceptor,
+			interceptor.SubnetCheckInterceptor,
 		),
 	)
 	pb.RegisterMonitoringServer(s, srv)

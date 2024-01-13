@@ -6,17 +6,12 @@ import (
 	"net/http"
 
 	"github.com/matthiasBT/monitoring/internal/infra/logging"
+	"github.com/matthiasBT/monitoring/internal/infra/utils"
 )
 
 // MiddlewareIPFilter either allows a client to proceed with its request or blocks it if the client's IP is not trusted
 func MiddlewareIPFilter(logger logging.ILogger, rawSubnet string) func(next http.Handler) http.Handler {
-	if rawSubnet == "" {
-		panic("Empty subnet string")
-	}
-	_, subnet, err := net.ParseCIDR(rawSubnet)
-	if err != nil {
-		panic("Invalid CIDR notation")
-	}
+	subnet := utils.ParseSubnet(rawSubnet)
 	return func(next http.Handler) http.Handler {
 		checkIP := func(w http.ResponseWriter, r *http.Request) {
 			clientIPRaw := r.Header.Get("X-Real-IP")
