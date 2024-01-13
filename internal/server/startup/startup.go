@@ -52,7 +52,7 @@ func SetupGRPCServer(
 	srv := servergrpc.NewServer(logger, storage)
 	s := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			servergrpc.LoggingInterceptor,
+			servergrpc.LoggingInterceptor{Logger: logging.SetupLogger()}.Interceptor,
 		),
 	)
 	pb.RegisterMonitoringServer(s, srv)
