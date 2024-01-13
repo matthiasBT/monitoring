@@ -40,23 +40,7 @@ func (i Interceptor) HashCheckInterceptor(
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		values := md.Get("HashSHA256")
 		if len(values) > 0 {
-			var (
-				payload []byte
-				err     error
-			)
-			if reqArr, ok := req.(*pb.MetricsArray); ok {
-				metricsMultiple := utils.GRPCMultipleMetricsToHTTP(reqArr)
-				payload, err = json.Marshal(metricsMultiple)
-				if err != nil {
-					return nil, status.Errorf(codes.Internal, err.Error())
-				}
-			} else if reqSingle, ok := req.(*pb.Metrics); ok {
-				metricsSingle := utils.GRPCMetricToHTTP(reqSingle)
-				payload, err = json.Marshal(metricsSingle)
-				if err != nil {
-					return nil, status.Errorf(codes.Internal, err.Error())
-				}
-			}
+			payload, err := jsonifyGRPCMetrics(req)
 			serverHash, err := utils.HashData(payload, i.HMACKey)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, err.Error())
@@ -67,4 +51,44 @@ func (i Interceptor) HashCheckInterceptor(
 		}
 	}
 	return handler(ctx, req)
+}
+
+func (i Interceptor) HashWriteInterceptor(
+	ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
+) (interface{}, error) {
+	resp, err := handler(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	payload, err := jsonifyGRPCMetrics(req)
+	if hash, err := utils.HashData(payload, i.HMACKey); err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	} else {
+		md := metadata.Pairs("HashSHA256", hash)
+		if err := grpc.SetTrailer(ctx, md); err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+	}
+	return resp, nil
+}
+
+func jsonifyGRPCMetrics(data any) ([]byte, error) {
+	var (
+		payload []byte
+		err     error
+	)
+	if reqArr, ok := data.(*pb.MetricsArray); ok {
+		metricsMultiple := utils.GRPCMultipleMetricsToHTTP(reqArr)
+		payload, err = json.Marshal(metricsMultiple)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+	} else if reqSingle, ok := data.(*pb.Metrics); ok {
+		metricsSingle := utils.GRPCMetricToHTTP(reqSingle)
+		payload, err = json.Marshal(metricsSingle)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+	}
+	return payload, nil
 }

@@ -55,6 +55,7 @@ func SetupGRPCServer(
 		grpc.ChainUnaryInterceptor(
 			interceptor.LoggingInterceptor,
 			interceptor.HashCheckInterceptor,
+			interceptor.HashWriteInterceptor,
 		),
 	)
 	pb.RegisterMonitoringServer(s, srv)
