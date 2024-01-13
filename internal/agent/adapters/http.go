@@ -171,7 +171,7 @@ func (r *HTTPReportAdapter) createRequest(path url.URL, payload []byte) (*http.R
 }
 
 func (r *HTTPReportAdapter) addHMACHeader(req *http.Request, payload []byte) error {
-	if hash, err := hashData(payload, r.HMACKey); err != nil {
+	if hash, err := utils.HashData(payload, r.HMACKey); err != nil {
 		return err
 	} else if hash != "" {
 		req.Header.Add("HashSHA256", hash)

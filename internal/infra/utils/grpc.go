@@ -37,16 +37,13 @@ func GRPCMetricToHTTP(req *pb.Metrics) *entities.Metrics {
 	return metrics
 }
 
-func GRPCMultipleMetricsToHTTP(grpcMetrics *pb.MetricsArray) ([]*entities.Metrics, error) {
+func GRPCMultipleMetricsToHTTP(grpcMetrics *pb.MetricsArray) []*entities.Metrics {
 	var batch []*entities.Metrics
 	for _, wrapped := range grpcMetrics.Objects {
 		unwrapped := GRPCMetricToHTTP(wrapped)
-		if err := unwrapped.Validate(true); err != nil {
-			return nil, WrapInvalidMetricError(err)
-		}
 		batch = append(batch, unwrapped)
 	}
-	return batch, nil
+	return batch
 }
 
 func HTTPMultipleMetricsToGRPC(httpMetrics []*entities.Metrics) *pb.MetricsArray {

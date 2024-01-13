@@ -5,11 +5,10 @@ package secure
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"io"
 	"net/http"
+
+	"github.com/matthiasBT/monitoring/internal/infra/utils"
 )
 
 // responseMetadata holds the data of an HTTP response to be hashed.
@@ -36,7 +35,7 @@ type extendedWriter struct {
 // It also sets the HashSHA256 header in the response.
 func (w *extendedWriter) Write(b []byte) (int, error) {
 	w.response.data = append(w.response.data, b...)
-	serverHash, err := hashData([]byte(w.hmacKey), &w.response.data) // "{"id":"SD11","type":"counter","delta":1}"
+	serverHash, err := utils.HashData(w.response.data, []byte(w.hmacKey)) // "{"id":"SD11","type":"counter","delta":1}"
 	if err != nil {
 		w.Write([]byte(err.Error()))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -65,7 +64,7 @@ func MiddlewareHashReader(key string) func(next http.Handler) http.Handler {
 				return
 			}
 
-			serverHash, err := hashData([]byte(key), &body)
+			serverHash, err := utils.HashData(body, []byte(key))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -100,14 +99,4 @@ func MiddlewareHashWriter(key string) func(next http.Handler) http.Handler {
 		}
 		return http.HandlerFunc(addHashFn)
 	}
-}
-
-func hashData(key []byte, payload *[]byte) (string, error) {
-	mac := hmac.New(sha256.New, key)
-	if _, err := mac.Write(*payload); err != nil {
-		return "", err
-	}
-	hash := mac.Sum(nil)
-	result := hex.EncodeToString(hash)
-	return result, nil
 }

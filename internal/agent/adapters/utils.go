@@ -1,14 +1,11 @@
 package adapters
 
 import (
-	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -60,19 +57,6 @@ func encryptAES(plaintext []byte) ([]byte, []byte, error) {
 	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
 
 	return key, ciphertext, nil
-}
-
-func hashData(payload, hmacKey []byte) (string, error) {
-	if bytes.Equal(hmacKey, []byte{}) {
-		return "", nil
-	}
-	mac := hmac.New(sha256.New, hmacKey)
-	if _, err := mac.Write(payload); err != nil {
-		return "", err
-	}
-	hash := mac.Sum(nil)
-	result := hex.EncodeToString(hash)
-	return result, nil
 }
 
 func getLocalIP() (string, error) {

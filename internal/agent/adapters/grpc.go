@@ -111,7 +111,7 @@ func (r *GRPCReportAdapter) getHMACHeader(payload []*common.Metrics) (string, er
 	if err != nil {
 		return "", err
 	}
-	if hash, err := hashData(binary, r.HMACKey); err != nil {
+	if hash, err := utils.HashData(binary, r.HMACKey); err != nil {
 		return "", err
 	} else if hash != "" {
 		return hash, nil

@@ -64,9 +64,11 @@ func (s *Server) UpdateMetric(ctx context.Context, req *pb.Metrics) (*pb.Metrics
 }
 
 func (s *Server) MassUpdateMetrics(ctx context.Context, req *pb.MetricsArray) (*pb.Empty, error) {
-	batch, err := utils.GRPCMultipleMetricsToHTTP(req)
-	if err != nil {
-		return nil, utils.WrapInvalidMetricError(err)
+	batch := utils.GRPCMultipleMetricsToHTTP(req)
+	for _, metrics := range batch {
+		if err := metrics.Validate(true); err != nil {
+			return nil, utils.WrapInvalidMetricError(err)
+		}
 	}
 	if err := s.Storage.AddBatch(ctx, batch); err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
