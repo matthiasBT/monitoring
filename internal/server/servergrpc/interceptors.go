@@ -45,6 +45,9 @@ func (i Interceptor) HashCheckInterceptor(
 		values := md.Get("HashSHA256")
 		if len(values) > 0 {
 			payload, err := toBinary(req)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, err.Error())
+			}
 			serverHash, err := utils.HashData(payload, i.HMACKey)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, err.Error())
@@ -65,6 +68,9 @@ func (i Interceptor) HashWriteInterceptor(
 		return nil, err
 	}
 	payload, err := toBinary(req)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
 	if hash, err := utils.HashData(payload, i.HMACKey); err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	} else {
