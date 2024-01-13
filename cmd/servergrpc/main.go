@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"net"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/matthiasBT/monitoring/internal/infra/utils"
 	"github.com/matthiasBT/monitoring/internal/server/adapters"
 	"github.com/matthiasBT/monitoring/internal/server/startup"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -55,7 +57,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to listen: %v", err)
 		}
-		if err := srv.Serve(lis); err != nil { // TODO: !errors.Is(err, http.ErrServerClosed) ?
+		if err := srv.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			log.Fatalf("failed to serve: %v", err)
 		}
 	}()

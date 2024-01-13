@@ -52,7 +52,7 @@ func main() {
 	srv := http.Server{Addr: conf.Addr, Handler: r}
 	go func() {
 		logger.Infof("Launching the server at %s\n", conf.Addr)
-		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal(err)
 		}
 	}()
