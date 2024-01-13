@@ -7,18 +7,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/hmac"
-	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 
@@ -52,9 +43,6 @@ type HTTPReportAdapter struct {
 	// Retrier is used to handle retries for HTTP requests in case of failures.
 	Retrier utils.Retrier
 }
-
-// ErrResponseNotOK is an error indicating that the HTTP response status is not OK (200).
-var ErrResponseNotOK = errors.New("response not OK")
 
 // NewHTTPReportAdapter creates and returns a new HTTPReportAdapter. It initializes
 // the adapter with the provided logger, server address, update URL, retrier, HMAC key,
@@ -121,7 +109,7 @@ func (r *HTTPReportAdapter) report(payload []byte) error {
 	)
 	u := url.URL{Scheme: "http", Host: r.ServerAddr, Path: r.UpdateURL}
 	if r.CryptoKey != nil {
-		payload, err = r.encryptData(payload)
+		payload, err = encryptData(payload, r.CryptoKey)
 		if err != nil {
 			return err
 		}
@@ -138,11 +126,9 @@ func (r *HTTPReportAdapter) report(payload []byte) error {
 		var resp *http.Response
 		resp, err = client.Do(req)
 		if err != nil {
-			r.Logger.Errorf("Request failed: %v\n", err.Error())
 			return nil, err
 		}
 		if resp.StatusCode != http.StatusOK {
-			r.Logger.Errorf("Request failed with code: %d\n", resp.StatusCode)
 			return nil, ErrResponseNotOK
 		}
 		defer resp.Body.Close()
@@ -185,27 +171,12 @@ func (r *HTTPReportAdapter) createRequest(path url.URL, payload []byte) (*http.R
 }
 
 func (r *HTTPReportAdapter) addHMACHeader(req *http.Request, payload []byte) error {
-	if hash, err := r.hashData(payload); err != nil {
+	if hash, err := hashData(payload, r.HMACKey); err != nil {
 		return err
 	} else if hash != "" {
 		req.Header.Add("HashSHA256", hash)
 	}
 	return nil
-}
-
-func (r *HTTPReportAdapter) hashData(payload []byte) (string, error) {
-	if bytes.Equal(r.HMACKey, []byte{}) {
-		return "", nil
-	}
-	mac := hmac.New(sha256.New, r.HMACKey)
-	if _, err := mac.Write(payload); err != nil {
-		r.Logger.Errorf("Failed to calculate hash: %v", err.Error())
-		return "", err
-	}
-	hash := mac.Sum(nil)
-	result := hex.EncodeToString(hash)
-	r.Logger.Infof("HMAC-SHA256 hash: %s\n", result)
-	return result, nil
 }
 
 func (r *HTTPReportAdapter) compress(payload []byte) (bytes.Buffer, error) {
@@ -219,80 +190,4 @@ func (r *HTTPReportAdapter) compress(payload []byte) (bytes.Buffer, error) {
 		return buf, err
 	}
 	return buf, nil
-}
-
-func (r *HTTPReportAdapter) encryptData(payload []byte) ([]byte, error) {
-	key, encryptedPayload, err := encryptAES(payload)
-	if err != nil {
-		r.Logger.Errorf("Error encrypting message: %v", err)
-		return nil, err
-	}
-	encryptedKey, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, r.CryptoKey, key, nil)
-	if err != nil {
-		r.Logger.Errorf("Error encrypting AES key: %v", err)
-		return nil, err
-	}
-	return append(encryptedKey, encryptedPayload...), nil
-}
-
-func encryptAES(plaintext []byte) ([]byte, []byte, error) {
-	key := make([]byte, 32) // AES-256
-	if _, err := rand.Read(key); err != nil {
-		return nil, nil, err
-	}
-
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-	iv := ciphertext[:aes.BlockSize]
-	if _, err := rand.Read(iv); err != nil {
-		return nil, nil, err
-	}
-
-	stream := cipher.NewCFBEncrypter(block, iv)
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
-
-	return key, ciphertext, nil
-}
-
-func getLocalIP() (string, error) {
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return "", err
-	}
-
-	for _, iface := range interfaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue // interface down or loopback
-		}
-
-		// Get associated unicast interface addresses.
-		addrs, err := iface.Addrs()
-		if err != nil {
-			return "", err
-		}
-
-		// Iterate over the addresses looking for a non-loopback IPv4 address.
-		for _, addr := range addrs {
-			ip := getIPFromAddr(addr)
-			if ip != nil && !ip.IsLoopback() && ip.To4() != nil {
-				return ip.String(), nil // return the first non-loopback IPv4 address
-			}
-		}
-	}
-	return "", fmt.Errorf("no active network interface found")
-}
-
-func getIPFromAddr(addr net.Addr) net.IP {
-	var ip net.IP
-	switch v := addr.(type) {
-	case *net.IPNet:
-		ip = v.IP
-	case *net.IPAddr:
-		ip = v.IP
-	}
-	return ip
 }

@@ -51,24 +51,37 @@ func main() {
 	done := make(<-chan bool)
 	dataExchange := entities.SnapshotWrapper{CurrSnapshot: nil}
 	retrier := setupRetrier(conf, logger)
-	publicKey, err := conf.ReadServerPublicKey()
-	if err != nil {
-		panic(err)
-	}
-	reporter := report.Reporter{
-		Logger: logger,
-		Data:   &dataExchange,
-		Ticker: time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
-		Done:   done,
-		SendAdapter: adapters.NewHTTPReportAdapter(
+	//publicKey, err := conf.ReadServerPublicKey()
+	//if err != nil {
+	//	panic(err)
+	//}
+	var adapter entities.IReporter
+	if conf.GRPC {
+		adapter = adapters.NewGRPCReportAdapter(
+			logger,
+			conf.Addr,
+			retrier,
+			[]byte(conf.HMACKey),
+			nil,
+			conf.RateLimit,
+		)
+	} else {
+		adapter = adapters.NewHTTPReportAdapter(
 			logger,
 			conf.Addr,
 			conf.UpdateURL,
 			retrier,
 			[]byte(conf.HMACKey),
-			publicKey,
+			nil,
 			conf.RateLimit,
-		),
+		)
+	}
+	reporter := report.Reporter{
+		Logger:      logger,
+		Data:        &dataExchange,
+		Ticker:      time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
+		Done:        done,
+		SendAdapter: adapter,
 	}
 	poller := poll.Poller{
 		Logger:    logger,

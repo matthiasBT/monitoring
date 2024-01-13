@@ -14,7 +14,7 @@ type LoggingInterceptor struct {
 	Logger logging.ILogger
 }
 
-func (l *LoggingInterceptor) Interceptor(
+func (l LoggingInterceptor) Interceptor(
 	ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 ) (interface{}, error) {
 	start := time.Now()

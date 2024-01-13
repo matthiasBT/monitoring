@@ -60,7 +60,7 @@ func Test_encryptData(t *testing.T) {
 		&privateKey.PublicKey,
 		0,
 	)
-	cipher, err := reportAdapter.encryptData([]byte("foobar"))
+	cipher, err := encryptData([]byte("foobar"), reportAdapter.CryptoKey)
 	if err != nil {
 		t.Errorf("Failed to encrypt data: %v", err)
 	}
