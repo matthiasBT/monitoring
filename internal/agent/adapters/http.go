@@ -16,7 +16,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 
@@ -173,6 +175,12 @@ func (r *HTTPReportAdapter) createRequest(path url.URL, payload []byte) (*http.R
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Content-Encoding", "gzip")
+	if addr, err := getLocalIP(); err != nil {
+		r.Logger.Errorf("Failed to add X-Real-IP header: %v", err)
+		return nil, err
+	} else {
+		req.Header.Add("X-Real-IP", addr)
+	}
 	return req, nil
 }
 
@@ -248,4 +256,43 @@ func encryptAES(plaintext []byte) ([]byte, []byte, error) {
 	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
 
 	return key, ciphertext, nil
+}
+
+func getLocalIP() (string, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue // interface down or loopback
+		}
+
+		// Get associated unicast interface addresses.
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return "", err
+		}
+
+		// Iterate over the addresses looking for a non-loopback IPv4 address.
+		for _, addr := range addrs {
+			ip := getIPFromAddr(addr)
+			if ip != nil && !ip.IsLoopback() && ip.To4() != nil {
+				return ip.String(), nil // return the first non-loopback IPv4 address
+			}
+		}
+	}
+	return "", fmt.Errorf("no active network interface found")
+}
+
+func getIPFromAddr(addr net.Addr) net.IP {
+	var ip net.IP
+	switch v := addr.(type) {
+	case *net.IPNet:
+		ip = v.IP
+	case *net.IPAddr:
+		ip = v.IP
+	}
+	return ip
 }
