@@ -26,10 +26,6 @@ type SnapshotWrapper struct {
 // Implementations of this interface are responsible for handling the actual
 // reporting of metric data.
 type IReporter interface {
-	// Report sends a single metrics object. This method is typically used for
-	// reporting individual metrics or data points.
-	Report(metrics *entities.Metrics) error
-
 	// ReportBatch sends a batch of metrics. This method is useful for reporting
 	// multiple metrics at once, potentially reducing overhead or network calls.
 	ReportBatch(batch []*entities.Metrics) error

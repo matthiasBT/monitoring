@@ -37,6 +37,9 @@ type Config struct {
 	// Addr represents the server address to which the agent connects.
 	Addr string `env:"ADDRESS" json:"address"`
 
+	// GRPC indicates that a GRPC client should be used
+	GRPC bool
+
 	// UpdateURL is the URL endpoint for sending updates.
 	UpdateURL string
 
@@ -101,6 +104,7 @@ func InitConfig() (*Config, error) {
 	conf := new(Config)
 	flag.StringVar(&conf.ConfigPath, "c", "", "Configuration file path")
 	flag.StringVar(&conf.Addr, "a", DefAddr, "Server address. Usage: -a=host:port")
+	flag.BoolVar(&conf.GRPC, "use-grpc", true, "Use to connect to a GRPC server instead of HTTP") // false?
 	flag.UintVar(
 		&conf.ReportInterval, "r", DefReportInterval, "How often to send metrics to the server, seconds",
 	)

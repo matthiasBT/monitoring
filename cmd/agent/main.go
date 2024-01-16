@@ -55,12 +55,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	reporter := report.Reporter{
-		Logger: logger,
-		Data:   &dataExchange,
-		Ticker: time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
-		Done:   done,
-		SendAdapter: adapters.NewHTTPReportAdapter(
+	var adapter entities.IReporter
+	if conf.GRPC {
+		adapter = adapters.NewGRPCReportAdapter(
+			logger,
+			conf.Addr,
+			retrier,
+			[]byte(conf.HMACKey),
+			publicKey,
+			conf.RateLimit,
+		)
+	} else {
+		adapter = adapters.NewHTTPReportAdapter(
 			logger,
 			conf.Addr,
 			conf.UpdateURL,
@@ -68,7 +74,14 @@ func main() {
 			[]byte(conf.HMACKey),
 			publicKey,
 			conf.RateLimit,
-		),
+		)
+	}
+	reporter := report.Reporter{
+		Logger:      logger,
+		Data:        &dataExchange,
+		Ticker:      time.NewTicker(time.Duration(conf.ReportInterval) * time.Second),
+		Done:        done,
+		SendAdapter: adapter,
 	}
 	poller := poll.Poller{
 		Logger:    logger,

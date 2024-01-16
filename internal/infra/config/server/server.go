@@ -18,6 +18,7 @@ import (
 const (
 	templatePath            = "web/template/"
 	DefAddr                 = "localhost:8080"
+	DefTrustedSubnet        = ""
 	DefStoreInterval        = 300
 	DefFileStoragePath      = "/tmp/metrics-db.json"
 	DefRestore              = true
@@ -55,6 +56,9 @@ type Config struct {
 
 	// CryptoKey is used for payload decryption
 	CryptoKey string `env:"CRYPTO_KEY" json:"crypto_key"`
+
+	// TrustedSubnet is used for allowing only certain client IP addresses access the server
+	TrustedSubnet string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
 
 	// RetryAttempts is the number of retry attempts for failed requests.
 	RetryAttempts int
@@ -99,6 +103,7 @@ func InitConfig() (*Config, error) {
 	flag.UintVar(&conf.StoreInterval, "i", DefStoreInterval, "How often to store data in the file")
 	flag.StringVar(&conf.HMACKey, "k", "", "HMAC key for integrity checks")
 	flag.StringVar(&conf.CryptoKey, "crypto-key", "", "Path to a file with the server private key")
+	flag.StringVar(&conf.TrustedSubnet, "t", DefTrustedSubnet, "The subnet from which the server accepts requests")
 	flag.Parse()
 	if jsonConfigPath, ok := os.LookupEnv("CONFIG"); ok {
 		conf.ConfigPath = jsonConfigPath

@@ -5,11 +5,10 @@ package secure
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"io"
 	"net/http"
+
+	"github.com/matthiasBT/monitoring/internal/infra/utils"
 )
 
 // responseMetadata holds the data of an HTTP response to be hashed.
@@ -33,16 +32,16 @@ type extendedWriter struct {
 }
 
 // Write hashes the response data using HMAC SHA256 and writes it to the client.
-// It also sets the HashSHA256 header in the response.
+// It also sets the X-Data-Hash header in the response.
 func (w *extendedWriter) Write(b []byte) (int, error) {
 	w.response.data = append(w.response.data, b...)
-	serverHash, err := hashData([]byte(w.hmacKey), &w.response.data) // "{"id":"SD11","type":"counter","delta":1}"
+	serverHash, err := utils.HashData(w.response.data, []byte(w.hmacKey)) // "{"id":"SD11","type":"counter","delta":1}"
 	if err != nil {
 		w.Write([]byte(err.Error()))
 		w.WriteHeader(http.StatusInternalServerError)
 		return len(err.Error()), err
 	}
-	w.Header().Set("HashSHA256", serverHash)
+	w.Header().Set("X-Data-Hash", serverHash)
 	size, err := w.ResponseWriter.Write(b)
 	return size, err
 }
@@ -54,7 +53,7 @@ func MiddlewareHashReader(key string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		checkHashFn := func(w http.ResponseWriter, r *http.Request) {
 			var clientHash string
-			if clientHash = r.Header.Get("HashSHA256"); clientHash == "" {
+			if clientHash = r.Header.Get("X-Data-Hash"); clientHash == "" {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -65,7 +64,7 @@ func MiddlewareHashReader(key string) func(next http.Handler) http.Handler {
 				return
 			}
 
-			serverHash, err := hashData([]byte(key), &body)
+			serverHash, err := utils.HashData(body, []byte(key))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -100,14 +99,4 @@ func MiddlewareHashWriter(key string) func(next http.Handler) http.Handler {
 		}
 		return http.HandlerFunc(addHashFn)
 	}
-}
-
-func hashData(key []byte, payload *[]byte) (string, error) {
-	mac := hmac.New(sha256.New, key)
-	if _, err := mac.Write(*payload); err != nil {
-		return "", err
-	}
-	hash := mac.Sum(nil)
-	result := hex.EncodeToString(hash)
-	return result, nil
 }

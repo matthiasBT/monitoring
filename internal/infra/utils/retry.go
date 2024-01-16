@@ -64,7 +64,6 @@ func (r *Retrier) RetryChecked(ctx context.Context, f func() (any, error), check
 			errChain = append(errChain, err)
 			return result, errors.Join(errChain...)
 		}
-		r.Logger.Infoln("Success")
 		return result, nil
 	}
 	if err := errors.Join(errChain...); err != nil {
