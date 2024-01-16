@@ -87,7 +87,7 @@ func (r *GRPCReportAdapter) report(payload []*common.Metrics) error {
 		meta = append(meta, "X-Real-IP", addr)
 	}
 	if hash != "" {
-		meta = append(meta, "HashSHA256", hash)
+		meta = append(meta, "X-Data-Hash", hash)
 	}
 
 	f := func() (any, error) {

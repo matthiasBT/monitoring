@@ -33,7 +33,7 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	done := make(chan struct{}, 1)
+	done := make(chan struct{})
 	tickerChan := startup.SetupTicker(conf)
 	retrier := startup.SetupRetrier(conf, logger)
 

@@ -42,7 +42,7 @@ func (i Interceptor) HashCheckInterceptor(
 	ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 ) (interface{}, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		values := md.Get("HashSHA256")
+		values := md.Get("X-Data-Hash")
 		if len(values) > 0 {
 			payload, err := toBinary(req)
 			if err != nil {
@@ -74,7 +74,7 @@ func (i Interceptor) HashWriteInterceptor(
 	if hash, err := utils.HashData(payload, i.HMACKey); err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	} else {
-		md := metadata.Pairs("HashSHA256", hash)
+		md := metadata.Pairs("X-Data-Hash", hash)
 		if err := grpc.SetTrailer(ctx, md); err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}

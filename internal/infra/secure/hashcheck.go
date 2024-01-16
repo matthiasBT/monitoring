@@ -32,7 +32,7 @@ type extendedWriter struct {
 }
 
 // Write hashes the response data using HMAC SHA256 and writes it to the client.
-// It also sets the HashSHA256 header in the response.
+// It also sets the X-Data-Hash header in the response.
 func (w *extendedWriter) Write(b []byte) (int, error) {
 	w.response.data = append(w.response.data, b...)
 	serverHash, err := utils.HashData(w.response.data, []byte(w.hmacKey)) // "{"id":"SD11","type":"counter","delta":1}"
@@ -41,7 +41,7 @@ func (w *extendedWriter) Write(b []byte) (int, error) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return len(err.Error()), err
 	}
-	w.Header().Set("HashSHA256", serverHash)
+	w.Header().Set("X-Data-Hash", serverHash)
 	size, err := w.ResponseWriter.Write(b)
 	return size, err
 }
@@ -53,7 +53,7 @@ func MiddlewareHashReader(key string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		checkHashFn := func(w http.ResponseWriter, r *http.Request) {
 			var clientHash string
-			if clientHash = r.Header.Get("HashSHA256"); clientHash == "" {
+			if clientHash = r.Header.Get("X-Data-Hash"); clientHash == "" {
 				next.ServeHTTP(w, r)
 				return
 			}
