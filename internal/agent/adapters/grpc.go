@@ -103,14 +103,14 @@ func (r *GRPCReportAdapter) report(payload []*common.Metrics) error {
 		c := pb.NewMonitoringClient(conn)
 		md := metadata.Pairs(meta...)
 		ctx := metadata.NewOutgoingContext(context.Background(), md)
+		req := new(pb.MetricsArray)
 		if encrypted {
-			req := new(pb.EncryptedMetricsArray)
 			req.Metrics = cipher
-			res, err = c.MassUpdateMetricsEncrypted(ctx, req, grpc.Header(&headerMD), grpc.Trailer(&trailerMD))
 		} else {
-			req := utils.HTTPMultipleMetricsToGRPC(payload)
-			res, err = c.MassUpdateMetrics(ctx, req, grpc.Header(&headerMD), grpc.Trailer(&trailerMD))
+			req = utils.HTTPMultipleMetricsToGRPC(payload)
 		}
+		res, err = c.MassUpdateMetrics(ctx, req, grpc.Header(&headerMD), grpc.Trailer(&trailerMD))
+
 		if err != nil {
 			return nil, err
 		}

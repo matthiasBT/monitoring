@@ -105,7 +105,7 @@ func (i Interceptor) SubnetCheckInterceptor(
 func (i Interceptor) DecryptionInterceptor(
 	ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 ) (interface{}, error) {
-	if data, ok := req.(*pb.EncryptedMetricsArray); ok {
+	if data, ok := req.(*pb.MetricsArray); ok && data.Metrics != nil {
 		if plaintext, err := utils.Decrypt(data.Metrics, i.CryptoKey); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, err.Error())
 		} else {
@@ -121,10 +121,14 @@ func toBinary(data any) ([]byte, error) {
 		err     error
 	)
 	if reqArr, ok := data.(*pb.MetricsArray); ok {
-		metricsMultiple := utils.GRPCMultipleMetricsToHTTP(reqArr)
-		payload, err = json.Marshal(metricsMultiple)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
+		if reqArr.Metrics == nil {
+			metricsMultiple := utils.GRPCMultipleMetricsToHTTP(reqArr)
+			payload, err = json.Marshal(metricsMultiple)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, err.Error())
+			}
+		} else {
+			payload = reqArr.Metrics
 		}
 	} else if reqSingle, ok := data.(*pb.Metrics); ok {
 		metricsSingle := utils.GRPCMetricToHTTP(reqSingle)
@@ -132,8 +136,6 @@ func toBinary(data any) ([]byte, error) {
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
-	} else if reqMultiple, ok := data.(*pb.EncryptedMetricsArray); ok {
-		payload = reqMultiple.Metrics
 	}
 	return payload, nil
 }

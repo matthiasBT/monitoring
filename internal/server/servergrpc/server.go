@@ -65,13 +65,14 @@ func (s *Server) UpdateMetric(ctx context.Context, req *pb.Metrics) (*pb.Metrics
 }
 
 func (s *Server) MassUpdateMetrics(ctx context.Context, req *pb.MetricsArray) (*pb.Empty, error) {
-	batch := utils.GRPCMultipleMetricsToHTTP(req)
-	return s.massUpdate(ctx, batch)
-}
-
-func (s *Server) MassUpdateMetricsEncrypted(ctx context.Context, req *pb.EncryptedMetricsArray) (*pb.Empty, error) {
 	var batch []*common.Metrics
-	if err := json.Unmarshal(req.Metrics, &batch); err != nil {
+	if req.Metrics == nil && req.Objects == nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Empty request data")
+	} else if req.Metrics != nil && req.Objects != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Only one field must contain data")
+	} else if req.Metrics == nil {
+		batch = utils.GRPCMultipleMetricsToHTTP(req)
+	} else if err := json.Unmarshal(req.Metrics, &batch); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 	return s.massUpdate(ctx, batch)

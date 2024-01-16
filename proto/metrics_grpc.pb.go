@@ -19,12 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Monitoring_Ping_FullMethodName                       = "/metrics.Monitoring/Ping"
-	Monitoring_UpdateMetric_FullMethodName               = "/metrics.Monitoring/UpdateMetric"
-	Monitoring_GetMetric_FullMethodName                  = "/metrics.Monitoring/GetMetric"
-	Monitoring_MassUpdateMetrics_FullMethodName          = "/metrics.Monitoring/MassUpdateMetrics"
-	Monitoring_MassUpdateMetricsEncrypted_FullMethodName = "/metrics.Monitoring/MassUpdateMetricsEncrypted"
-	Monitoring_GetAllMetrics_FullMethodName              = "/metrics.Monitoring/GetAllMetrics"
+	Monitoring_Ping_FullMethodName              = "/metrics.Monitoring/Ping"
+	Monitoring_UpdateMetric_FullMethodName      = "/metrics.Monitoring/UpdateMetric"
+	Monitoring_GetMetric_FullMethodName         = "/metrics.Monitoring/GetMetric"
+	Monitoring_MassUpdateMetrics_FullMethodName = "/metrics.Monitoring/MassUpdateMetrics"
+	Monitoring_GetAllMetrics_FullMethodName     = "/metrics.Monitoring/GetAllMetrics"
 )
 
 // MonitoringClient is the client API for Monitoring service.
@@ -35,7 +34,6 @@ type MonitoringClient interface {
 	UpdateMetric(ctx context.Context, in *Metrics, opts ...grpc.CallOption) (*Metrics, error)
 	GetMetric(ctx context.Context, in *Metrics, opts ...grpc.CallOption) (*Metrics, error)
 	MassUpdateMetrics(ctx context.Context, in *MetricsArray, opts ...grpc.CallOption) (*Empty, error)
-	MassUpdateMetricsEncrypted(ctx context.Context, in *EncryptedMetricsArray, opts ...grpc.CallOption) (*Empty, error)
 	GetAllMetrics(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*MetricsArray, error)
 }
 
@@ -83,15 +81,6 @@ func (c *monitoringClient) MassUpdateMetrics(ctx context.Context, in *MetricsArr
 	return out, nil
 }
 
-func (c *monitoringClient) MassUpdateMetricsEncrypted(ctx context.Context, in *EncryptedMetricsArray, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, Monitoring_MassUpdateMetricsEncrypted_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *monitoringClient) GetAllMetrics(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*MetricsArray, error) {
 	out := new(MetricsArray)
 	err := c.cc.Invoke(ctx, Monitoring_GetAllMetrics_FullMethodName, in, out, opts...)
@@ -109,7 +98,6 @@ type MonitoringServer interface {
 	UpdateMetric(context.Context, *Metrics) (*Metrics, error)
 	GetMetric(context.Context, *Metrics) (*Metrics, error)
 	MassUpdateMetrics(context.Context, *MetricsArray) (*Empty, error)
-	MassUpdateMetricsEncrypted(context.Context, *EncryptedMetricsArray) (*Empty, error)
 	GetAllMetrics(context.Context, *Empty) (*MetricsArray, error)
 	mustEmbedUnimplementedMonitoringServer()
 }
@@ -129,9 +117,6 @@ func (UnimplementedMonitoringServer) GetMetric(context.Context, *Metrics) (*Metr
 }
 func (UnimplementedMonitoringServer) MassUpdateMetrics(context.Context, *MetricsArray) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MassUpdateMetrics not implemented")
-}
-func (UnimplementedMonitoringServer) MassUpdateMetricsEncrypted(context.Context, *EncryptedMetricsArray) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MassUpdateMetricsEncrypted not implemented")
 }
 func (UnimplementedMonitoringServer) GetAllMetrics(context.Context, *Empty) (*MetricsArray, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAllMetrics not implemented")
@@ -221,24 +206,6 @@ func _Monitoring_MassUpdateMetrics_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Monitoring_MassUpdateMetricsEncrypted_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EncryptedMetricsArray)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MonitoringServer).MassUpdateMetricsEncrypted(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Monitoring_MassUpdateMetricsEncrypted_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MonitoringServer).MassUpdateMetricsEncrypted(ctx, req.(*EncryptedMetricsArray))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Monitoring_GetAllMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Empty)
 	if err := dec(in); err != nil {
@@ -279,10 +246,6 @@ var Monitoring_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MassUpdateMetrics",
 			Handler:    _Monitoring_MassUpdateMetrics_Handler,
-		},
-		{
-			MethodName: "MassUpdateMetricsEncrypted",
-			Handler:    _Monitoring_MassUpdateMetricsEncrypted_Handler,
 		},
 		{
 			MethodName: "GetAllMetrics",
